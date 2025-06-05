@@ -35,7 +35,7 @@ from libcpp.string cimport string
 cdef extern from "Python.h":
     ctypedef int Py_intptr_t
   
-_pysndfile_version=(1, 4, 7)
+_pysndfile_version=(1, 4, 8)
 def get_pysndfile_version():
     """
     return tuple describing the version of pysndfile
@@ -143,6 +143,7 @@ cdef extern from "pysndfile.hh":
     cdef int C_SF_FORMAT_OGG "SF_FORMAT_OGG"     # /* Xiph OGG container */
     cdef int C_SF_FORMAT_MPCK "SF_FORMAT_MPC2K"  # /* Akai MPC 2000 sampler */
     cdef int C_SF_FORMAT_RF64 "SF_FORMAT_RF64"   # /* RF64 WAV file */
+    cdef int C_SF_FORMAT_MPEG "SF_FORMAT_MPEG"   # /* MPEG-1/2 audio stream */
 
     #/* Subtypes from here on. */
     cdef int C_SF_FORMAT_PCM_S8 "SF_FORMAT_PCM_S8"    # /* Signed 8 bit data */
@@ -173,6 +174,13 @@ cdef extern from "pysndfile.hh":
 
     cdef int C_SF_FORMAT_DPCM_8 "SF_FORMAT_DPCM_8"    # /* 8 bit differential PCM (XI only) */
     cdef int C_SF_FORMAT_DPCM_16 "SF_FORMAT_DPCM_16"   # /* 16 bit differential PCM (XI only) */
+
+    cdef int C_SF_FORMAT_VORBIS "SF_FORMAT_VORBIS"    # /* Xiph Vorbis encoding. */
+    cdef int C_SF_FORMAT_OPUS "SF_FORMAT_OPUS"    # /* Xiph/Skype Opus encoding. */
+
+    cdef int C_SF_FORMAT_MPEG_LAYER_I "SF_FORMAT_MPEG_LAYER_I"     # /* MPEG-1 Audio Layer I */
+    cdef int C_SF_FORMAT_MPEG_LAYER_II "SF_FORMAT_MPEG_LAYER_II"   # /* MPEG-1 Audio Layer II */
+    cdef int C_SF_FORMAT_MPEG_LAYER_III "SF_FORMAT_MPEG_LAYER_III" # /* MPEG-2 Audio Layer III */
 
     #    /* Endian-ness options. */
     cdef int C_SF_ENDIAN_FILE "SF_ENDIAN_FILE"   # /* Default file endian-ness. */
@@ -365,7 +373,14 @@ _encoding_id_tuple = (
     ('dwwN'  , C_SF_FORMAT_DWVW_N),
 
     ('dpcm8' , C_SF_FORMAT_DPCM_8),
-    ('dpcm16', C_SF_FORMAT_DPCM_16)
+    ('dpcm16', C_SF_FORMAT_DPCM_16),
+
+    ('vorbis', C_SF_FORMAT_VORBIS),
+    ('opus', C_SF_FORMAT_OPUS),
+
+    ('mp1', C_SF_FORMAT_MPEG_LAYER_I),
+    ('mp2', C_SF_FORMAT_MPEG_LAYER_II),
+    ('mp3', C_SF_FORMAT_MPEG_LAYER_III)
     )
 
 encoding_name_to_id = dict(_encoding_id_tuple)
@@ -401,6 +416,7 @@ _fileformat_id_tuple = (
     ('ogg'  , C_SF_FORMAT_OGG),
     ('mpck'  , C_SF_FORMAT_MPCK),
     ('rf64'  , C_SF_FORMAT_RF64),
+    ('mpeg'  , C_SF_FORMAT_MPEG)
     )
 
 

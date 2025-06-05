@@ -8,13 +8,48 @@ from pysndfile_inst_dir.pysndfile import get_sndfile_version
 from pysndfile_inst_dir.pysndfile import *
 import pysndfile_inst_dir.pysndfile as pysndfile
 
-
 mydir = os.path.dirname(__file__)
+
 
 print("pysndfile version:",get_pysndfile_version())
 print("libsndfile version:",get_sndfile_version())
 
 majors = get_sndfile_formats()
+
+def test_compressed(input_file, format, encoding, lossy):
+    if format in majors:
+        if encoding in get_sndfile_encodings(format):
+            failed = False
+            ss, sr, enc = pysndfile.sndio.read(os.path.join(mydir,input_file), force_2d=True)
+            print('test writing {0}/{1}'.format(format, encoding))
+            output_file = PySndfile(os.path.join(mydir,'test.{0}_{1}'.format(format, encoding)), "w", construct_format(format, encoding), ss.shape[1], sr)
+            output_file.command("SFC_SET_COMPRESSION_LEVEL", 1.)
+            output_file.write_frames(ss)
+            output_file.close()
+            ss_out, sr_out, enc_out = pysndfile.sndio.read(os.path.join(mydir,'test.{0}_{1}'.format(format, encoding)), force_2d=True)
+            if sr != sr_out:
+                print('error::{0}/{1} writing sample rate {2} read {3}'.format(format, encoding, sr, sr_out))
+                failed = True
+            if encoding != enc_out:
+                print('error::{0}/{1} writing enc read as {2}'.format(format, encoding, enc_out))
+                failed = True
+            if lossy:
+                if ss.shape != ss_out.shape:
+                    print('error in {0}/{1}: shape different wrote {2} read {2}'.format(format, encoding, ss.shape, ss_out.shape))
+                    failed = True
+            else:
+                if np.any (ss != ss_out):
+                    print('error in {0}/{1}: signal different'.format(format, encoding))
+                    failed = True
+            if failed:
+                print("errors encountered for {0}/{1}".format(format, encoding))
+                sys.exit(1)
+        else:
+            print('your libsndfile version does not support {1} encoding of {0} format, skip writing test'.format(format, encoding))
+    else:
+        print('your libsndfile version does not support {0} format, skip writing test'.format(format))
+
+
 print( "majors", majors)
 for mm in majors:
     if mm in fileformat_name_to_id:
@@ -93,33 +128,14 @@ if np.any(ss != np.concatenate((wwstart, wwend), axis=0)):
     print("error reading file segments with class")
 
 # check writing flac
-if "flac" in majors:
-    print('test writing flac')
-    ss, sr, enc = pysndfile.sndio.read(os.path.join(mydir,'test.wav'), force_2d=True)
-    flac_file = PySndfile(os.path.join(mydir,'test.flac'), "w", construct_format("flac", "pcm16"), ss.shape[1], sr)
-    flac_file.command("SFC_SET_COMPRESSION_LEVEL", 1.)
-    flac_file.write_frames(ss)
-    flac_file.close()
+test_compressed('test.wav', 'flac', 'pcm16', False)
 
-    ss_flac, sr_flac, enc_flac = pysndfile.sndio.read(os.path.join(mydir,'test.flac'), force_2d=True)
-    if sr != sr_flac:
-        print('error::flac writing sample rate')
-        write_error = True
-    if enc != enc_flac:
-        print('error::flac writing enc')
-        write_error = True
-    if np.any (ss != ss_flac):
-        print('error in test_2cF.wav')
-        write_error = True
-else:
-    print('your libsndfile version does not support flac format, skip flac writing test')
+test_compressed('test.wav', 'ogg', 'vorbis', True)
 
-if write_error or read_error:
-    if write_error:
-        print("write errors encountered")
-    if read_error:
-        print("read errors encountered")
-    sys.exit(1)
-else:
-    print("all seems ok")
-    sys.exit(0)
+# opus does not support 41000
+test_compressed('test48000.wav', 'ogg', 'opus', True)
+
+test_compressed('test.wav', 'mpeg', 'mp3', True)
+
+print("all seems ok")
+sys.exit(0)
