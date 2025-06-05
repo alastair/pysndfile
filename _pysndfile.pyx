@@ -143,7 +143,6 @@ cdef extern from "pysndfile.hh":
     cdef int C_SF_FORMAT_OGG "SF_FORMAT_OGG"     # /* Xiph OGG container */
     cdef int C_SF_FORMAT_MPCK "SF_FORMAT_MPC2K"  # /* Akai MPC 2000 sampler */
     cdef int C_SF_FORMAT_RF64 "SF_FORMAT_RF64"   # /* RF64 WAV file */
-    cdef int C_SF_FORMAT_MPEG "SF_FORMAT_MPEG"   # /* MPEG-1/2 audio stream */
 
     #/* Subtypes from here on. */
     cdef int C_SF_FORMAT_PCM_S8 "SF_FORMAT_PCM_S8"    # /* Signed 8 bit data */
@@ -176,11 +175,6 @@ cdef extern from "pysndfile.hh":
     cdef int C_SF_FORMAT_DPCM_16 "SF_FORMAT_DPCM_16"   # /* 16 bit differential PCM (XI only) */
 
     cdef int C_SF_FORMAT_VORBIS "SF_FORMAT_VORBIS"    # /* Xiph Vorbis encoding. */
-    cdef int C_SF_FORMAT_OPUS "SF_FORMAT_OPUS"    # /* Xiph/Skype Opus encoding. */
-
-    cdef int C_SF_FORMAT_MPEG_LAYER_I "SF_FORMAT_MPEG_LAYER_I"     # /* MPEG-1 Audio Layer I */
-    cdef int C_SF_FORMAT_MPEG_LAYER_II "SF_FORMAT_MPEG_LAYER_II"   # /* MPEG-1 Audio Layer II */
-    cdef int C_SF_FORMAT_MPEG_LAYER_III "SF_FORMAT_MPEG_LAYER_III" # /* MPEG-2 Audio Layer III */
 
     #    /* Endian-ness options. */
     cdef int C_SF_ENDIAN_FILE "SF_ENDIAN_FILE"   # /* Default file endian-ness. */
@@ -321,13 +315,43 @@ cdef extern from "pysndfile.hh":
         int setString (int str_type, const char* str)
         const char* getString (int str_type)
 
-# these two come with more recent versions of libsndfile
+# the following are defined with more recent versions of libsndfile
 # to not break compilation they are defined outside sndfile.h
+
+# formats
+cdef int C_SF_FORMAT_MPEG = 0x230000 # should be "SF_FORMAT_MPEG" /* MPEG-1/2 audio stream */
+
+# encodings
+cdef int C_SF_FORMAT_OPUS = 0x0064 # should be "SF_FORMAT_OPUS" # /* Xiph/Skype Opus encoding. */
+cdef int C_SF_FORMAT_MPEG_LAYER_I = 0x0080 # should be "SF_FORMAT_MPEG_LAYER_I"     # /* MPEG-1 Audio Layer I */
+cdef int C_SF_FORMAT_MPEG_LAYER_II = 0x0081 # should be "SF_FORMAT_MPEG_LAYER_II"   # /* MPEG-1 Audio Layer II */
+cdef int C_SF_FORMAT_MPEG_LAYER_III = 0x0082 # should be "SF_FORMAT_MPEG_LAYER_III" # /* MPEG-2 Audio Layer III */
+
+# Ogg format commands
+cdef int C_SFC_SET_OGG_PAGE_LATENCY_MS = 0x1302 # should be "SFC_SET_OGG_PAGE_LATENCY_MS"
+cdef int C_SFC_SET_OGG_PAGE_LATENCY = 0x1303 # should be "SFC_SET_OGG_PAGE_LATENCY"
+cdef int C_SFC_GET_OGG_STREAM_SERIALNO = 0x1306 # should be "SFC_GET_OGG_STREAM_SERIALNO"
+
+# MPEG bitrate commands
+cdef int C_SFC_GET_BITRATE_MODE = 0x1304 # should be "SFC_GET_BITRATE_MODE"
+cdef int C_SFC_SET_BITRATE_MODE = 0x1305 # should be "SFC_SET_BITRATE_MODE"
+
+# Opus files original samplerate metadata
+cdef int C_SFC_SET_ORIGINAL_SAMPLERATE = 0x1500 # should be "SFC_SET_ORIGINAL_SAMPLERATE"
+cdef int C_SFC_GET_ORIGINAL_SAMPLERATE = 0x1501 # should be "SFC_GET_ORIGINAL_SAMPLERATE"
+
+# string types
 cdef int C_SF_STR_ALBUM = 0x07
 cdef int C_SF_STR_LICENSE = 0x08
 cdef int C_SF_STR_TRACKNUMBER = 0x09
 cdef int C_SF_STR_GENRE = 0x10
 
+# Bitrate mode values (for use with SFC_GET/SET_BITRATE_MODE)
+cdef int C_SF_BITRATE_MODE_CONSTANT = 0 # should be "SF_BITRATE_MODE_CONSTANT"
+cdef int C_SF_BITRATE_MODE_AVERAGE = 1 # should be "SF_BITRATE_MODE_AVERAGE"
+cdef int C_SF_BITRATE_MODE_VARIABLE = 2 # should "SF_BITRATE_MODE_VARIABLE"
+
+# end of constants defined outside sndfile.h for compatibilty
 
 SF_MAX_CHANNELS  = 1024
 """int: maximum number if channels supported by libsndfile 1.0.28.
@@ -501,6 +525,16 @@ _commands_to_id_tuple = (
 
     ("SFC_SET_VBR_ENCODING_QUALITY", C_SFC_SET_VBR_ENCODING_QUALITY),
     ("SFC_SET_COMPRESSION_LEVEL", C_SFC_SET_COMPRESSION_LEVEL),
+
+    ("SFC_SET_OGG_PAGE_LATENCY_MS", C_SFC_SET_OGG_PAGE_LATENCY_MS),
+    ("SFC_SET_OGG_PAGE_LATENCY", C_SFC_SET_OGG_PAGE_LATENCY),
+    ("SFC_GET_OGG_STREAM_SERIALNO", C_SFC_GET_OGG_STREAM_SERIALNO),
+
+    ("SFC_GET_BITRATE_MODE", C_SFC_GET_BITRATE_MODE),
+    ("SFC_SET_BITRATE_MODE", C_SFC_SET_BITRATE_MODE),
+
+    ("SFC_SET_ORIGINAL_SAMPLERATE", C_SFC_SET_ORIGINAL_SAMPLERATE),
+    ("SFC_GET_ORIGINAL_SAMPLERATE", C_SFC_GET_ORIGINAL_SAMPLERATE)
     )
     
 
