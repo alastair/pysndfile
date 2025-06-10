@@ -9,8 +9,8 @@ formats on a variety of plattforms. PySndfile provides a rather complete
 access to the different sound file manipulation options that are
 available in libsndfile.
 
-Due to the use of libsndfile nearly all sound file formats, (besides mp3
-and derived formats) can be read and written with PySndfile.
+Due to the use of libsndfile nearly all sound file formats can be read
+and written with PySndfile.
 
 The interface has been designed such that a rather large subset of the
 functionality of libsndfile can be used, notably the reading and writing
