@@ -108,7 +108,7 @@ Please see the developer documentation [here](https://pysndfile.readthedocs.io/e
 
 ### Version_1.4.8 (2025-06-10)
 
- * Extension: ogg/vorbis, ogg/opus and mpeg formats are not supported if the installed version of libsndfile supports them
+ * Extension: ogg/vorbis, ogg/opus and mpeg formats are now supported if the installed version of libsndfile supports them
 
 ### Version_1.4.7 (2024-12-31)
 
