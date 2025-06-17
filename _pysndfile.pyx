@@ -912,6 +912,8 @@ cdef class PySndfile:
 |                 SFC_WAVEX_GET_AMBISONIC
 |                 SFC_WAVEX_SET_AMBISONIC
 |                 SFC_RAW_DATA_NEEDS_ENDSWAP
+|                 SFC_RF64_AUTO_DOWNGRADE
+|                 SFC_GET_BITRATE_MODE
 
         :param arg: <int> additional argument of the command
 
