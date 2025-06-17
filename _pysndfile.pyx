@@ -911,7 +911,7 @@ cdef class PySndfile:
 |                 SFC_GET_CLIPPING (see :py:func:`pysndfile.PySndfile.set_auto_clipping`)
 |                 SFC_WAVEX_GET_AMBISONIC
 |                 SFC_WAVEX_SET_AMBISONIC
-|                 SFC_RAW_NEEDS_ENDSWAP
+|                 SFC_RAW_DATA_NEEDS_ENDSWAP
 
         :param arg: <int> additional argument of the command
 

@@ -23,7 +23,7 @@ def test_compressed(input_file, format, encoding, lossy):
             ss, sr, enc = pysndfile.sndio.read(os.path.join(mydir,input_file), force_2d=True)
             print('test writing {0}/{1}'.format(format, encoding))
             output_file = PySndfile(os.path.join(mydir,'test.{0}_{1}'.format(format, encoding)), "w", construct_format(format, encoding), ss.shape[1], sr)
-            output_file.command("SFC_SET_COMPRESSION_LEVEL", 1.)
+            output_file.set_compression_level(1.)
             output_file.write_frames(ss)
             output_file.close()
             ss_out, sr_out, enc_out = pysndfile.sndio.read(os.path.join(mydir,'test.{0}_{1}'.format(format, encoding)), force_2d=True)
@@ -45,7 +45,7 @@ def test_compressed(input_file, format, encoding, lossy):
                 print("errors encountered for {0}/{1}".format(format, encoding))
                 sys.exit(1)
             print('test sndio.write {0}/{1}'.format(format, encoding))
-            pysndfile.sndio.write(os.path.join(mydir,'testsndio.{0}.{1}'.format(format, encoding)), ss, rate=sr, format=format, enc=encoding, compression_level=1.)
+            pysndfile.sndio.write(os.path.join(mydir,'testsndio.{0}_{1}'.format(format, encoding)), ss, rate=sr, format=format, enc=encoding, compression_level=1.)
             ss_out2, sr_out2, enc_out2 = pysndfile.sndio.read(os.path.join(mydir,'testsndio.{0}_{1}'.format(format, encoding)), force_2d=True)
             if sr != sr_out2:
                 print('error::{0}/{1} writing sample rate {2} read {3}'.format(format, encoding, sr, sr_out2))
