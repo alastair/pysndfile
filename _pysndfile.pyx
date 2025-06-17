@@ -162,6 +162,7 @@ cdef extern from "pysndfile.hh":
 
     cdef int C_SF_FORMAT_GSM610 "SF_FORMAT_GSM610"    # /* GSM 6.10 encoding. */
     cdef int C_SF_FORMAT_VOX_ADPCM "SF_FORMAT_VOX_ADPCM"  # /* OKI / Dialogix ADPCM */
+
     cdef int C_SF_FORMAT_G721_32 "SF_FORMAT_G721_32"   # /* 32kbs G721 ADPCM encoding. */
     cdef int C_SF_FORMAT_G723_24 "SF_FORMAT_G723_24"   # /* 24kbs G723 ADPCM encoding. */
     cdef int C_SF_FORMAT_G723_40 "SF_FORMAT_G723_40"   # /* 40kbs G723 ADPCM encoding. */
@@ -175,6 +176,12 @@ cdef extern from "pysndfile.hh":
     cdef int C_SF_FORMAT_DPCM_16 "SF_FORMAT_DPCM_16"   # /* 16 bit differential PCM (XI only) */
 
     cdef int C_SF_FORMAT_VORBIS "SF_FORMAT_VORBIS"    # /* Xiph Vorbis encoding. */
+
+    cdef int C_SF_FORMAT_ALAC_16 "SF_FORMAT_ALAC_16" # /* Apple Lossless Audio Codec (16 bit). */
+    cdef int C_SF_FORMAT_ALAC_20 "SF_FORMAT_ALAC_20" # /* Apple Lossless Audio Codec (20 bit). */
+    cdef int C_SF_FORMAT_ALAC_24 "SF_FORMAT_ALAC_24" # /* Apple Lossless Audio Codec (24 bit). */
+    cdef int C_SF_FORMAT_ALAC_32 "SF_FORMAT_ALAC_32" # /* Apple Lossless Audio Codec (32 bit). */
+
 
     #    /* Endian-ness options. */
     cdef int C_SF_ENDIAN_FILE "SF_ENDIAN_FILE"   # /* Default file endian-ness. */
@@ -236,6 +243,7 @@ cdef extern from "pysndfile.hh":
 
     cdef int C_SFC_GET_CUE_COUNT "SFC_GET_CUE_COUNT"
     cdef int C_SFC_GET_CUE "SFC_GET_CUE"
+    cdef int C_SFC_SET_CUE "SFC_SET_CUE"
 
     cdef int C_SFC_GET_INSTRUMENT "SFC_GET_INSTRUMENT"  
     cdef int C_SFC_SET_INSTRUMENT "SFC_SET_INSTRUMENT"  
@@ -245,13 +253,28 @@ cdef extern from "pysndfile.hh":
     cdef int C_SFC_GET_BROADCAST_INFO "SFC_GET_BROADCAST_INFO"  
     cdef int C_SFC_SET_BROADCAST_INFO "SFC_SET_BROADCAST_INFO"  
 
+    cdef int C_SFC_GET_CHANNEL_MAP_INFO "SFC_GET_CHANNEL_MAP_INFO"
+    cdef int C_SFC_SET_CHANNEL_MAP_INFO "SFC_SET_CHANNEL_MAP_INFO"
+
+    cdef int C_SFC_RAW_DATA_NEEDS_ENDSWAP "SFC_RAW_DATA_NEEDS_ENDSWAP"
+
+    # /* Support for Wavex Ambisonics Format */
     cdef int C_SFC_WAVEX_SET_AMBISONIC "SFC_WAVEX_SET_AMBISONIC"
     cdef int C_SFC_WAVEX_GET_AMBISONIC "SFC_WAVEX_GET_AMBISONIC"
 
+    # /*
+    #  ** RF64 files can be set so that on-close, writable files that have less
+    #  ** than 4GB of data in them are converted to RIFF/WAV, as per EBU
+    #  ** recommendations.
+    #  */
     cdef int C_SFC_RF64_AUTO_DOWNGRADE "SFC_RF64_AUTO_DOWNGRADE"
 
     cdef int C_SFC_SET_VBR_ENCODING_QUALITY "SFC_SET_VBR_ENCODING_QUALITY"
     cdef int C_SFC_SET_COMPRESSION_LEVEL "SFC_SET_COMPRESSION_LEVEL"
+
+    # /* Cart Chunk support */
+    cdef int C_SFC_SET_CART_INFO "SFC_SET_CART_INFO"
+    cdef int C_SFC_GET_CART_INFO "SFC_GET_CART_INFO"
 
     cdef int C_SF_STR_TITLE "SF_STR_TITLE"  
     cdef int C_SF_STR_COPYRIGHT "SF_STR_COPYRIGHT"  
@@ -260,7 +283,7 @@ cdef extern from "pysndfile.hh":
     cdef int C_SF_STR_COMMENT "SF_STR_COMMENT"  
     cdef int C_SF_STR_DATE "SF_STR_DATE"  
 
-    # these are the only values retrieved from the header file. So we cannot
+    # these are the values retrieved from the header file. So we cannot
     # try to write/get strings that are not supported by the library we use.
     cdef int C_SF_STR_FIRST "SF_STR_FIRST"
     cdef int C_SF_STR_LAST  "SF_STR_LAST"
@@ -315,17 +338,22 @@ cdef extern from "pysndfile.hh":
         int setString (int str_type, const char* str)
         const char* getString (int str_type)
 
-# the following are defined with more recent versions of libsndfile
+# the following are defined with more recent versions of libsndfile (more recent
+# than 1.0.28)
 # to not break compilation they are defined outside sndfile.h
 
 # formats
 cdef int C_SF_FORMAT_MPEG = 0x230000 # should be "SF_FORMAT_MPEG" /* MPEG-1/2 audio stream */
 
 # encodings
-cdef int C_SF_FORMAT_OPUS = 0x0064 # should be "SF_FORMAT_OPUS" # /* Xiph/Skype Opus encoding. */
-cdef int C_SF_FORMAT_MPEG_LAYER_I = 0x0080 # should be "SF_FORMAT_MPEG_LAYER_I"     # /* MPEG-1 Audio Layer I */
-cdef int C_SF_FORMAT_MPEG_LAYER_II = 0x0081 # should be "SF_FORMAT_MPEG_LAYER_II"   # /* MPEG-1 Audio Layer II */
-cdef int C_SF_FORMAT_MPEG_LAYER_III = 0x0082 # should be "SF_FORMAT_MPEG_LAYER_III" # /* MPEG-2 Audio Layer III */
+cdef int C_SF_FORMAT_NMS_ADPCM_16 = 0x0022 # should be "SF_FORMAT_NMS_ADPCM_16" /* 16kbs NMS G721-variant encoding. */
+cdef int C_SF_FORMAT_NMS_ADPCM_24 = 0x0023 # should be "SF_FORMAT_NMS_ADPCM_24" /* 24kbs NMS G721-variant encoding. */
+cdef int C_SF_FORMAT_NMS_ADPCM_32 = 0x0024 # should be "SF_FORMAT_NMS_ADPCM_32" /* 32kbs NMS G721-variant encoding. */
+
+cdef int C_SF_FORMAT_OPUS = 0x0064 # should be "SF_FORMAT_OPUS" /* Xiph/Skype Opus encoding. */
+cdef int C_SF_FORMAT_MPEG_LAYER_I = 0x0080 # should be "SF_FORMAT_MPEG_LAYER_I" /* MPEG-1 Audio Layer I */
+cdef int C_SF_FORMAT_MPEG_LAYER_II = 0x0081 # should be "SF_FORMAT_MPEG_LAYER_II" /* MPEG-1 Audio Layer II */
+cdef int C_SF_FORMAT_MPEG_LAYER_III = 0x0082 # should be "SF_FORMAT_MPEG_LAYER_III" /* MPEG-2 Audio Layer III */
 
 # Ogg format commands
 cdef int C_SFC_SET_OGG_PAGE_LATENCY_MS = 0x1302 # should be "SFC_SET_OGG_PAGE_LATENCY_MS"
@@ -387,6 +415,10 @@ _encoding_id_tuple = (
     ('gsm610'    , C_SF_FORMAT_GSM610),
     ('vox_adpcm' , C_SF_FORMAT_VOX_ADPCM),
 
+    ('nms_adpcm_16', C_SF_FORMAT_NMS_ADPCM_16),
+    ('nms_adpcm_24', C_SF_FORMAT_NMS_ADPCM_24),
+    ('nms_adpcm_32', C_SF_FORMAT_NMS_ADPCM_32),
+
     ('g721_32'   , C_SF_FORMAT_G721_32),
     ('g723_24'   , C_SF_FORMAT_G723_24),
     ('g723_40'   , C_SF_FORMAT_G723_40),
@@ -402,8 +434,13 @@ _encoding_id_tuple = (
     ('vorbis', C_SF_FORMAT_VORBIS),
     ('opus', C_SF_FORMAT_OPUS),
 
-    ('mp1', C_SF_FORMAT_MPEG_LAYER_I),
-    ('mp2', C_SF_FORMAT_MPEG_LAYER_II),
+    ('alac16', C_SF_FORMAT_ALAC_16),
+    ('alac20', C_SF_FORMAT_ALAC_20),
+    ('alac24', C_SF_FORMAT_ALAC_24),
+    ('alac32', C_SF_FORMAT_ALAC_32),
+
+    ('mpeg1', C_SF_FORMAT_MPEG_LAYER_I),
+    ('mpeg2', C_SF_FORMAT_MPEG_LAYER_II),
     ('mp3', C_SF_FORMAT_MPEG_LAYER_III)
     )
 
@@ -511,6 +548,10 @@ _commands_to_id_tuple = (
     ("SFC_SET_CLIPPING" , C_SFC_SET_CLIPPING),
     ("SFC_GET_CLIPPING" , C_SFC_GET_CLIPPING),
 
+    ("SFC_GET_CUE_COUNT", C_SFC_GET_CUE_COUNT),
+    ("SFC_GET_CUE", C_SFC_GET_CUE),
+    ("SFC_SET_CUE", C_SFC_SET_CUE),
+
     ("SFC_GET_INSTRUMENT" , C_SFC_GET_INSTRUMENT),
     ("SFC_SET_INSTRUMENT" , C_SFC_SET_INSTRUMENT),
 
@@ -519,12 +560,20 @@ _commands_to_id_tuple = (
     ("SFC_GET_BROADCAST_INFO", C_SFC_GET_BROADCAST_INFO),
     ("SFC_SET_BROADCAST_INFO", C_SFC_SET_BROADCAST_INFO),
 
+    ("SFC_GET_CHANNEL_MAP_INFO", C_SFC_GET_CHANNEL_MAP_INFO),
+    ("SFC_SET_CHANNEL_MAP_INFO", C_SFC_SET_CHANNEL_MAP_INFO),
+
+    ("SFC_RAW_DATA_NEEDS_ENDSWAP", C_SFC_RAW_DATA_NEEDS_ENDSWAP),
+
     ("SFC_WAVEX_SET_AMBISONIC", C_SFC_WAVEX_SET_AMBISONIC),
     ("SFC_WAVEX_GET_AMBISONIC", C_SFC_WAVEX_GET_AMBISONIC),
     ("SFC_RF64_AUTO_DOWNGRADE", C_SFC_RF64_AUTO_DOWNGRADE),
 
     ("SFC_SET_VBR_ENCODING_QUALITY", C_SFC_SET_VBR_ENCODING_QUALITY),
     ("SFC_SET_COMPRESSION_LEVEL", C_SFC_SET_COMPRESSION_LEVEL),
+
+    ("SFC_SET_CART_INFO", C_SFC_SET_CART_INFO),
+    ("SFC_GET_CART_INFO", C_SFC_GET_CART_INFO),
 
     ("SFC_SET_OGG_PAGE_LATENCY_MS", C_SFC_SET_OGG_PAGE_LATENCY_MS),
     ("SFC_SET_OGG_PAGE_LATENCY", C_SFC_SET_OGG_PAGE_LATENCY),
@@ -873,6 +922,25 @@ cdef class PySndfile:
         # so we suppose it is an int
         return self.thisPtr.command(command, NULL, arg)
         
+
+    def set_compression_level(self, level:float):
+        """
+        Set the compression level for the file. The level should be between 0 and 1.
+        with 1. indicating maximal compression and 0 minimal compression.
+
+        :param level: <int> compression level
+
+        :return: <int> 1 for success, 0 for failure
+        """
+        if (self.thisPtr == NULL) or not self.thisPtr:
+            raise RuntimeError("PySndfile::error::no valid soundfilehandle")
+        
+        if level < 0 or level > 1:
+            raise ValueError("PySndfile::error::compression level should be between 0 and 1")
+        cdef double d_level = <double> level
+        cdef double* d_ptr = &d_level
+        cdef size_t d_size = sizeof(double)
+        return self.thisPtr.command(C_SFC_SET_COMPRESSION_LEVEL, d_ptr, d_size)
 
     def set_auto_clipping( self, arg = True) :
         """

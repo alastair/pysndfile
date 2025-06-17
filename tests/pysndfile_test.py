@@ -44,6 +44,21 @@ def test_compressed(input_file, format, encoding, lossy):
             if failed:
                 print("errors encountered for {0}/{1}".format(format, encoding))
                 sys.exit(1)
+            print('test sndio.write {0}/{1}'.format(format, encoding))
+            pysndfile.sndio.write(os.path.join(mydir,'testsndio.{0}.{1}'.format(format, encoding)), ss, rate=sr, format=format, enc=encoding, compression_level=1.)
+            ss_out2, sr_out2, enc_out2 = pysndfile.sndio.read(os.path.join(mydir,'testsndio.{0}_{1}'.format(format, encoding)), force_2d=True)
+            if sr != sr_out2:
+                print('error::{0}/{1} writing sample rate {2} read {3}'.format(format, encoding, sr, sr_out2))
+                failed = True
+            if encoding != enc_out2:
+                print('error::{0}/{1} writing enc read as {2}'.format(format, encoding, enc_out2))
+                failed = True
+            if np.any (ss_out2 != ss_out):
+                print('error in {0}/{1}: signal different'.format(format, encoding))
+                failed = True
+            if failed:
+                print("errors encountered for {0}/{1}".format(format, encoding))
+                sys.exit(1)
         else:
             print('your libsndfile version does not support {1} encoding of {0} format, skip writing test'.format(format, encoding))
     else:

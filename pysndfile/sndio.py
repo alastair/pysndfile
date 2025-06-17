@@ -72,7 +72,8 @@ def get_markers(name) :
         return sf.get_cue_mrks()
 
 
-def write(name: Union[Path, str], data:np.ndarray, rate=44100, format="aiff", enc='pcm16', sf_strings:Optional[Dict[bytes, bytes]]=None) :
+def write(name: Union[Path, str], data:np.ndarray, rate=44100, format="aiff", enc='pcm16', 
+          sf_strings:Optional[Dict[bytes, bytes]]=None, compression_level:Optional[float]=None): :
     """
     Write data-vector to sndfile using samplerate, format and encoding as specified
     valid format strings are all the keys in the dict pysndfile.fileformat_name_to_id
@@ -98,6 +99,11 @@ def write(name: Union[Path, str], data:np.ndarray, rate=44100, format="aiff", en
           individual strings. These lengths are stored in the dict `max_supported_string_length`. If any of your strings exceeds the limit given in that dict a RuntimeError will be produced
 
     :type sf_strings: Union[dict, None]
+    
+    compression_level: compression level for flac/mpeg/ogg files. 0 is minimal compression, 1. is maximal compression.
+       for flac the compression controls the complexity of the algorithm, 
+       for mpeg and ogg it controls the bitrate. 
+    
     :return: number of sample frames written.
     :rtype: int
     """
@@ -113,6 +119,8 @@ def write(name: Union[Path, str], data:np.ndarray, rate=44100, format="aiff", en
 
         if sf_strings is not None:
             sf.set_strings(sf_strings)
+        if sf_compression_level is not None:
+            sf.set_compression_level(compression_level)
         nf = sf.write_frames(data)
 
         if nf != data.shape[0]:
