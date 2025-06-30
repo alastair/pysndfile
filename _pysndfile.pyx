@@ -24,10 +24,12 @@
 
 # cython: embedsignature=True
 # cython: language_level=2
+# distutils: language = c++
 
 import numpy as np
 import warnings
 import os
+from dataclasses import dataclass
 
 cimport numpy as cnp
 from libcpp.string cimport string
@@ -35,7 +37,7 @@ from libcpp.string cimport string
 cdef extern from "Python.h":
     ctypedef int Py_intptr_t
   
-_pysndfile_version=(1, 4, 8)
+_pysndfile_version=(1, 5, 0)
 def get_pysndfile_version():
     """
     return tuple describing the version of pysndfile
@@ -75,12 +77,25 @@ cdef extern from *:
     #endif
     """
 
-from libc.stddef cimport wchar_t
+from libc.stddef cimport wchar_t, size_t
 ctypedef const wchar_t *LPCWSTR
 
 cdef extern from "Python.h":
     wchar_t* PyUnicode_AsWideCharString(object, Py_ssize_t *) except NULL
     void PyMem_Free(void *p)
+
+from libc.stdint cimport uint32_t, int16_t, uint64_t, int32_t, INT16_MIN, INT16_MAX, INT32_MIN, INT32_MAX
+from libc.stdlib cimport free, malloc
+from libc.string cimport strcpy, memchr, memset
+from libc.limits cimport CHAR_MIN, CHAR_MAX
+from libc.math cimport pow
+
+# not in sndfile.h, but nested structs are not supported by Cython
+cdef struct loop_t:
+    int mode
+    uint32_t start
+    uint32_t end
+    uint32_t count
 
 cdef extern from "pysndfile.hh":
     ctypedef struct SF_FORMAT_INFO:
@@ -92,8 +107,8 @@ cdef extern from "pysndfile.hh":
 
     struct SF_INFO:
         sf_count_t frames
-        int channels
         int samplerate
+        int channels
         int format
         int sections
         int seekable
@@ -113,6 +128,81 @@ cdef extern from "pysndfile.hh":
     ctypedef struct SF_CUES:
         unsigned int cue_count
         SF_CUE_POINT cue_points[100]
+
+    ctypedef struct SF_DITHER_INFO:
+        int type
+        double level
+        const char* name
+
+    ctypedef struct SF_EMBED_FILE_INFO:
+        sf_count_t offset
+        sf_count_t length
+
+    ctypedef struct SF_INSTRUMENT:
+        int gain
+        char basenote
+        char detune
+        char velocity_lo
+        char velocity_hi
+        char key_lo
+        char key_hi
+        int loop_count
+        char loops[16 * sizeof(loop_t)]
+
+    ctypedef struct SF_LOOP_INFO:
+        short time_sig_num
+        short time_sig_den
+        int loop_mode
+        int num_beats
+        float bpm
+        int root_key
+        int future[6]
+
+    ctypedef struct SF_BROADCAST_INFO:
+        char description[256]
+        char originator[32]
+        char originator_reference[32]
+        char origination_date[10]
+        char origination_time[8]
+        uint32_t time_reference_low
+        uint32_t time_reference_high
+        short version
+        char umid[64]
+        int16_t loudness_value
+        int16_t loudness_range
+        int16_t max_true_peak_level
+        int16_t max_momentary_loudness
+        int16_t max_shortterm_loudness
+        char reserved[180]
+        uint32_t coding_history_size
+        char coding_history[256]
+
+    ctypedef struct SF_CART_TIMER:
+        char usage[4]
+        int32_t value
+
+    ctypedef struct SF_CART_INFO:
+        char version[4]
+        char title[64]
+        char artist[64]
+        char cut_id[64]
+        char client_id[64]
+        char category[64]
+        char classification[64]
+        char out_cue[64]
+        char start_date[10]
+        char start_time[8]
+        char end_date[10]
+        char end_time[8]
+        char producer_app_id[64]
+        char producer_app_version[64]
+        char user_def[64]
+        int32_t level_reference
+        SF_CART_TIMER post_timers[8]
+        char reserved[276]
+        char url[1024]
+        uint32_t tag_text_size
+        char tag_text[256]
 
     cdef int sf_command(SNDFILE *sndfile, int command, void *data, int datasize)
     cdef int sf_format_check (const SF_INFO *info)
@@ -196,6 +286,7 @@ cdef extern from "pysndfile.hh":
     # commands
     cdef int C_SFC_GET_LIB_VERSION "SFC_GET_LIB_VERSION"  
     cdef int C_SFC_GET_LOG_INFO "SFC_GET_LOG_INFO"  
+    cdef int C_SFC_GET_CURRENT_SF_INFO "SFC_GET_CURRENT_SF_INFO"
 
     cdef int C_SFC_GET_NORM_DOUBLE "SFC_GET_NORM_DOUBLE"  
     cdef int C_SFC_GET_NORM_FLOAT "SFC_GET_NORM_FLOAT"  
@@ -222,6 +313,7 @@ cdef extern from "pysndfile.hh":
     cdef int C_SFC_GET_MAX_ALL_CHANNELS "SFC_GET_MAX_ALL_CHANNELS"  
 
     cdef int C_SFC_SET_ADD_PEAK_CHUNK "SFC_SET_ADD_PEAK_CHUNK"  
+    cdef int C_SFC_SET_ADD_HEADER_PAD_CHUNK "SFC_SET_ADD_HEADER_PAD_CHUNK"
 
     cdef int C_SFC_UPDATE_HEADER_NOW "SFC_UPDATE_HEADER_NOW"  
     cdef int C_SFC_SET_UPDATE_HEADER_AUTO "SFC_SET_UPDATE_HEADER_AUTO"  
@@ -276,6 +368,18 @@ cdef extern from "pysndfile.hh":
     cdef int C_SFC_SET_CART_INFO "SFC_SET_CART_INFO"
     cdef int C_SFC_GET_CART_INFO "SFC_GET_CART_INFO"
 
+    # /* Following commands for testing only. */
+    cdef int C_SFC_TEST_IEEE_FLOAT_REPLACE "SFC_TEST_IEEE_FLOAT_REPLACE"
+
+    # /*
+    #  ** These SFC_SET_ADD_* values are deprecated and will disappear at some
+    #  ** time in the future. They are guaranteed to be here up to and
+    #  ** including version 1.0.8 to avoid breakage of existing software.
+    #  ** They currently do nothing and will continue to do nothing.
+    #  */
+    cdef int C_SFC_SET_ADD_DITHER_ON_WRITE "SFC_SET_ADD_DITHER_ON_WRITE"
+    cdef int C_SFC_SET_ADD_DITHER_ON_READ "SFC_SET_ADD_DITHER_ON_READ"
+
     cdef int C_SF_STR_TITLE "SF_STR_TITLE"  
     cdef int C_SF_STR_COPYRIGHT "SF_STR_COPYRIGHT"  
     cdef int C_SF_STR_SOFTWARE "SF_STR_SOFTWARE"  
@@ -296,6 +400,9 @@ cdef extern from "pysndfile.hh":
     cdef int C_SFM_WRITE "SFM_WRITE"  
     cdef int C_SFM_RDWR "SFM_RDWR"  
 
+    cdef int C_SF_AMBISONIC_NONE "SF_AMBISONIC_NONE"
+    cdef int C_SF_AMBISONIC_B_FORMAT "SF_AMBISONIC_B_FORMAT"
+
     cdef int C_SEEK_SET "SEEK_SET"  
     cdef int C_SEEK_CUR "SEEK_CUR"  
     cdef int C_SEEK_END "SEEK_END"  
@@ -307,6 +414,39 @@ cdef extern from "pysndfile.hh":
     cdef int C_SF_ERR_UNSUPPORTED_ENCODING "SF_ERR_UNSUPPORTED_ENCODING"  
     
     cdef int C_SF_COUNT_MAX "SF_COUNT_MAX"  
+
+    cdef int C_SF_LOOP_NONE "SF_LOOP_NONE"
+    cdef int C_SF_LOOP_FORWARD "SF_LOOP_FORWARD"
+    cdef int C_SF_LOOP_BACKWARD "SF_LOOP_BACKWARD"
+    cdef int C_SF_LOOP_ALTERNATING "SF_LOOP_ALTERNATING"
+
+    cdef int C_SF_CHANNEL_MAP_INVALID "SF_CHANNEL_MAP_INVALID"
+    cdef int C_SF_CHANNEL_MAP_MONO "SF_CHANNEL_MAP_MONO"
+    cdef int C_SF_CHANNEL_MAP_LEFT "SF_CHANNEL_MAP_LEFT" # /* Apple calls this 'Left' */
+    cdef int C_SF_CHANNEL_MAP_RIGHT "SF_CHANNEL_MAP_RIGHT" # /* Apple calls this 'Right' */
+    cdef int C_SF_CHANNEL_MAP_CENTER "SF_CHANNEL_MAP_CENTER" # /* Apple calls this 'Center' */
+    cdef int C_SF_CHANNEL_MAP_FRONT_LEFT "SF_CHANNEL_MAP_FRONT_LEFT"
+    cdef int C_SF_CHANNEL_MAP_FRONT_RIGHT "SF_CHANNEL_MAP_FRONT_RIGHT"
+    cdef int C_SF_CHANNEL_MAP_FRONT_CENTER "SF_CHANNEL_MAP_FRONT_CENTER"
+    cdef int C_SF_CHANNEL_MAP_REAR_CENTER "SF_CHANNEL_MAP_REAR_CENTER" # /* Apple calls this 'Center Surround', Msft calls this 'Back Center' */
+    cdef int C_SF_CHANNEL_MAP_REAR_LEFT "SF_CHANNEL_MAP_REAR_LEFT" # /* Apple calls this 'Left Surround', Msft calls this 'Back Left' */
+    cdef int C_SF_CHANNEL_MAP_REAR_RIGHT "SF_CHANNEL_MAP_REAR_RIGHT" # /* Apple calls this 'Right Surround', Msft calls this 'Back Right' */
+    cdef int C_SF_CHANNEL_MAP_LFE "SF_CHANNEL_MAP_LFE" # /* Apple calls this 'LFEScreen', Msft calls this 'Low Frequency'  */
+    cdef int C_SF_CHANNEL_MAP_FRONT_LEFT_OF_CENTER "SF_CHANNEL_MAP_FRONT_LEFT_OF_CENTER" # /* Apple calls this 'Left Center' */
+    cdef int C_SF_CHANNEL_MAP_FRONT_RIGHT_OF_CENTER "SF_CHANNEL_MAP_FRONT_RIGHT_OF_CENTER" # /* Apple calls this 'Right Center */
+    cdef int C_SF_CHANNEL_MAP_SIDE_LEFT "SF_CHANNEL_MAP_SIDE_LEFT" # /* Apple calls this 'Left Surround Direct' */
+    cdef int C_SF_CHANNEL_MAP_SIDE_RIGHT "SF_CHANNEL_MAP_SIDE_RIGHT" # /* Apple calls this 'Right Surround Direct' */
+    cdef int C_SF_CHANNEL_MAP_TOP_CENTER "SF_CHANNEL_MAP_TOP_CENTER" # /* Apple calls this 'Top Center Surround' */
+    cdef int C_SF_CHANNEL_MAP_TOP_FRONT_LEFT "SF_CHANNEL_MAP_TOP_FRONT_LEFT" # /* Apple calls this 'Vertical Height Left' */
+    cdef int C_SF_CHANNEL_MAP_TOP_FRONT_RIGHT "SF_CHANNEL_MAP_TOP_FRONT_RIGHT" # /* Apple calls this 'Vertical Height Right' */
+    cdef int C_SF_CHANNEL_MAP_TOP_FRONT_CENTER "SF_CHANNEL_MAP_TOP_FRONT_CENTER" # /* Apple calls this 'Vertical Height Center' */
+    cdef int C_SF_CHANNEL_MAP_TOP_REAR_LEFT "SF_CHANNEL_MAP_TOP_REAR_LEFT" # /* Apple and MS call this 'Top Back Left' */
+    cdef int C_SF_CHANNEL_MAP_TOP_REAR_RIGHT "SF_CHANNEL_MAP_TOP_REAR_RIGHT" # /* Apple and MS call this 'Top Back Right' */
+    cdef int C_SF_CHANNEL_MAP_TOP_REAR_CENTER "SF_CHANNEL_MAP_TOP_REAR_CENTER" # /* Apple and MS call this 'Top Back Center' */
+    cdef int C_SF_CHANNEL_MAP_AMBISONIC_B_W "SF_CHANNEL_MAP_AMBISONIC_B_W"
+    cdef int C_SF_CHANNEL_MAP_AMBISONIC_B_X "SF_CHANNEL_MAP_AMBISONIC_B_X"
+    cdef int C_SF_CHANNEL_MAP_AMBISONIC_B_Y "SF_CHANNEL_MAP_AMBISONIC_B_Y"
+    cdef int C_SF_CHANNEL_MAP_AMBISONIC_B_Z "SF_CHANNEL_MAP_AMBISONIC_B_Z"
 
     cdef cppclass SndfileHandle :
         SndfileHandle(const char *path, int mode, int format, int channels, int samplerate)
@@ -503,6 +643,7 @@ endian_id_to_name = dict([(id, endname) for endname, id in _endian_to_id_tuple])
 _commands_to_id_tuple = (
     ("SFC_GET_LIB_VERSION" , C_SFC_GET_LIB_VERSION),
     ("SFC_GET_LOG_INFO" ,     C_SFC_GET_LOG_INFO),
+    ("SFC_GET_CURRENT_SF_INFO", C_SFC_GET_CURRENT_SF_INFO),
     
     ("SFC_GET_NORM_DOUBLE" , C_SFC_GET_NORM_DOUBLE),
     ("SFC_GET_NORM_FLOAT" , C_SFC_GET_NORM_FLOAT),
@@ -529,6 +670,7 @@ _commands_to_id_tuple = (
     ("SFC_GET_MAX_ALL_CHANNELS" , C_SFC_GET_MAX_ALL_CHANNELS),
 
     ("SFC_SET_ADD_PEAK_CHUNK" , C_SFC_SET_ADD_PEAK_CHUNK),
+    ("SFC_SET_ADD_HEADER_PAD_CHUNK", C_SFC_SET_ADD_HEADER_PAD_CHUNK),
 
     ("SFC_UPDATE_HEADER_NOW" , C_SFC_UPDATE_HEADER_NOW),
     ("SFC_SET_UPDATE_HEADER_AUTO" , C_SFC_SET_UPDATE_HEADER_AUTO),
@@ -583,7 +725,12 @@ _commands_to_id_tuple = (
     ("SFC_SET_BITRATE_MODE", C_SFC_SET_BITRATE_MODE),
 
     ("SFC_SET_ORIGINAL_SAMPLERATE", C_SFC_SET_ORIGINAL_SAMPLERATE),
-    ("SFC_GET_ORIGINAL_SAMPLERATE", C_SFC_GET_ORIGINAL_SAMPLERATE)
+    ("SFC_GET_ORIGINAL_SAMPLERATE", C_SFC_GET_ORIGINAL_SAMPLERATE),
+
+    ("SFC_TEST_IEEE_FLOAT_REPLACE", C_SFC_TEST_IEEE_FLOAT_REPLACE),
+
+    ("SFC_SET_ADD_DITHER_ON_WRITE", C_SFC_SET_ADD_DITHER_ON_WRITE),
+    ("SFC_SET_ADD_DITHER_ON_READ", C_SFC_SET_ADD_DITHER_ON_READ)
     )
     
 
@@ -614,6 +761,241 @@ stringtype_name_to_id = dict(_stringtype_to_id_tuple[:C_SF_STR_LAST+1])
 #: dict mapping of libsndfile's stringtype ids to pysndfile's stringtype names.
 stringtype_id_to_name = dict([(id, com) for com, id in _stringtype_to_id_tuple[:C_SF_STR_LAST+1]])
 
+# loop modes for instrument
+_loop_to_id_tuple = (
+    ("SF_LOOP_NONE", C_SF_LOOP_NONE),
+    ("SF_LOOP_FORWARD", C_SF_LOOP_FORWARD),
+    ("SF_LOOP_BACKWARD", C_SF_LOOP_BACKWARD),
+    ("SF_LOOP_ALTERNATING", C_SF_LOOP_ALTERNATING)
+    )
+
+loop_name_to_id = dict(_loop_to_id_tuple)
+loop_id_to_name = dict([(id, name) for name, id in _loop_to_id_tuple])
+
+_channel_map_to_id_tuple = (
+    ("SF_CHANNEL_MAP_INVALID", C_SF_CHANNEL_MAP_INVALID),
+    ("SF_CHANNEL_MAP_MONO", C_SF_CHANNEL_MAP_MONO),
+    ("SF_CHANNEL_MAP_LEFT", C_SF_CHANNEL_MAP_LEFT),
+    ("SF_CHANNEL_MAP_RIGHT", C_SF_CHANNEL_MAP_RIGHT),
+    ("SF_CHANNEL_MAP_CENTER", C_SF_CHANNEL_MAP_CENTER),
+    ("SF_CHANNEL_MAP_FRONT_LEFT", C_SF_CHANNEL_MAP_FRONT_LEFT),
+    ("SF_CHANNEL_MAP_FRONT_RIGHT", C_SF_CHANNEL_MAP_FRONT_RIGHT),
+    ("SF_CHANNEL_MAP_FRONT_CENTER", C_SF_CHANNEL_MAP_FRONT_CENTER),
+    ("SF_CHANNEL_MAP_REAR_CENTER", C_SF_CHANNEL_MAP_REAR_CENTER),
+    ("SF_CHANNEL_MAP_REAR_LEFT", C_SF_CHANNEL_MAP_REAR_LEFT),
+    ("SF_CHANNEL_MAP_REAR_RIGHT", C_SF_CHANNEL_MAP_REAR_RIGHT),
+    ("SF_CHANNEL_MAP_LFE", C_SF_CHANNEL_MAP_LFE),
+    ("SF_CHANNEL_MAP_FRONT_LEFT_OF_CENTER", C_SF_CHANNEL_MAP_FRONT_LEFT_OF_CENTER),
+    ("SF_CHANNEL_MAP_FRONT_RIGHT_OF_CENTER", C_SF_CHANNEL_MAP_FRONT_RIGHT_OF_CENTER),
+    ("SF_CHANNEL_MAP_SIDE_LEFT", C_SF_CHANNEL_MAP_SIDE_LEFT),
+    ("SF_CHANNEL_MAP_SIDE_RIGHT", C_SF_CHANNEL_MAP_SIDE_RIGHT),
+    ("SF_CHANNEL_MAP_TOP_CENTER", C_SF_CHANNEL_MAP_TOP_CENTER),
+    ("SF_CHANNEL_MAP_TOP_FRONT_LEFT", C_SF_CHANNEL_MAP_TOP_FRONT_LEFT),
+    ("SF_CHANNEL_MAP_TOP_FRONT_RIGHT", C_SF_CHANNEL_MAP_TOP_FRONT_RIGHT),
+    ("SF_CHANNEL_MAP_TOP_FRONT_CENTER", C_SF_CHANNEL_MAP_TOP_FRONT_CENTER),
+    ("SF_CHANNEL_MAP_TOP_REAR_LEFT", C_SF_CHANNEL_MAP_TOP_REAR_LEFT),
+    ("SF_CHANNEL_MAP_TOP_REAR_RIGHT", C_SF_CHANNEL_MAP_TOP_REAR_RIGHT),
+    ("SF_CHANNEL_MAP_TOP_REAR_CENTER", C_SF_CHANNEL_MAP_TOP_REAR_CENTER),
+    ("SF_CHANNEL_MAP_AMBISONIC_B_W", C_SF_CHANNEL_MAP_AMBISONIC_B_W),
+    ("SF_CHANNEL_MAP_AMBISONIC_B_X", C_SF_CHANNEL_MAP_AMBISONIC_B_X),
+    ("SF_CHANNEL_MAP_AMBISONIC_B_Y", C_SF_CHANNEL_MAP_AMBISONIC_B_Y),
+    ("SF_CHANNEL_MAP_AMBISONIC_B_Z", C_SF_CHANNEL_MAP_AMBISONIC_B_Z)
+    )
+
+channel_map_name_to_id = dict(_channel_map_to_id_tuple)
+channel_map_id_to_name = dict([(id, name) for name, id in _channel_map_to_id_tuple])
+
+_ambisonic_to_id_tuple = (
+    ("SF_AMBISONIC_NONE", C_SF_AMBISONIC_NONE),
+    ("SF_AMBISONIC_B_FORMAT", C_SF_AMBISONIC_B_FORMAT)
+    )
+
+ambisonic_name_to_id = dict(_ambisonic_to_id_tuple)
+ambisonic_id_to_name = dict([(id, name) for name, id in _ambisonic_to_id_tuple])
+
+_bitrate_mode_to_id_tuple = (
+    ("SF_BITRATE_MODE_CONSTANT", C_SF_BITRATE_MODE_CONSTANT),
+    ("SF_BITRATE_MODE_AVERAGE", C_SF_BITRATE_MODE_AVERAGE),
+    ("SF_BITRATE_MODE_VARIABLE", C_SF_BITRATE_MODE_VARIABLE)
+    )
+
+bitrate_mode_name_to_id = dict(_bitrate_mode_to_id_tuple)
+bitrate_mode_id_to_name = dict([(id, name) for name, id in _bitrate_mode_to_id_tuple])
+
+@dataclass
+class SfInfoData:
+    frames: int
+    samplerate: int
+    channels: int
+    format: int
+    sections: int
+    seekable: int
+
+@dataclass
+class SfFormatInfo:
+    format: int
+    name: str
+    extension: str
+
+@dataclass
+class SfDitherInfo:
+    type: int
+    level: float
+    name: str
+
+@dataclass
+class SfEmbedFileInfo:
+    offset: int
+    length: int
+
+@dataclass
+class SfCuePoint:
+    indx: int
+    position: int
+    fcc_chunk: int
+    chunk_start: int
+    block_start: int
+    sample_offset: int
+    name: str
+
+@dataclass
+class SfInstrumentLoop:
+    mode: str
+    start: int
+    end: int
+    count: int
+
+@dataclass
+class SfInstrument:
+    gain: int
+    basenote: int
+    detune: int
+    velocity_lo: int
+    velocity_hi: int
+    key_lo: int
+    key_hi: int
+    loops: list[SfInstrumentLoop]
+
+@dataclass
+class SfLoopInfo:
+    time_sig_num: int
+    time_seg_den: int
+    loop_mode: str
+    num_beats: int
+    bpm: float
+    root_key: int
+    future: list[int]
+
+@dataclass
+class SfBroadcastInfo:
+    description: str
+    originator: str
+    originator_reference: str
+    origination_date: str
+    origination_time: str
+    time_reference: int
+    version: int
+    umid: bytes
+    loudness_value: int
+    loudness_range: int
+    max_true_peak_level: int
+    max_momentary_loudness: int
+    max_shortterm_loudness: int
+    coding_history: str
+
+@dataclass
+class SfCartTimer:
+    usage: str
+    value: int
+
+@dataclass
+class SfCartInfo:
+    version: str
+    title: str
+    artist: str
+    cut_id: str
+    client_id: str
+    category: str
+    classification: str
+    out_cue: str
+    start_date: str
+    start_time: str
+    end_date: str
+    end_time: str
+    producer_app_id: str
+    producer_app_version: str
+    user_def: str
+    level_reference: int
+    post_timers: list[SfCartTimer]
+    url: str
+    tag_text: str
+
+def _raise_command_retcode_error(ret, command):
+    raise RuntimeError("PySndfile::error:: command {0} failed with error {1}".format(commands_id_to_name[command], sf_error_number(ret)))
+
+def _check_command_retcode(ret, command):
+    if ret != C_SF_ERR_NO_ERROR:
+        _raise_command_retcode_error(ret, command)
+
+def _check_command_retval(ret, command, failure):
+    if ret == failure:
+        raise RuntimeError("PySndfile::error:: command {0} failed".format(commands_id_to_name[command]))
+    return ret
+
+# special case for some commands that can return a mix of boolean and codes
+def _check_command_hybrid_retval(ret, command):
+    _check_command_retval(ret, command, C_SF_FALSE)
+    if ret != C_SF_TRUE:
+        _raise_command_retcode_error(ret, command)
+
+def _check_char_range(value, command, field):
+    if value < CHAR_MIN or value > CHAR_MAX:
+        raise RuntimeError("PySndfile::error:: command {0} argument {1} value {2} is out of range".format(commands_id_to_name[command], field, value))
+    return value
+
+def _check_int16_range(value, command, field):
+    if value < INT16_MIN or value > INT16_MAX:
+        raise RuntimeError("PySndfile::error:: command {0} argument {1} value {2} is out of range {3}-{4}".format(commands_id_to_name[command], field, value, INT16_MIN, INT16_MAX))
+    return value
+
+def _check_int32_range(value, command, field):
+    if value < INT32_MIN or value > INT32_MAX:
+        raise RuntimeError("PySndfile::error:: command {0} argument {1} value {2} is out of range {3}-{4}".format(commands_id_to_name[command], field, value, INT32_MIN, INT32_MAX))
+    return value
+
+cdef int _assign_string_field(char* dst, value, int max_length, command, field):
+    cdef int length
+    if value:
+        tmp_str = value.encode("UTF-8")
+        length = len(tmp_str)
+        if length > max_length:
+            raise RuntimeError("PySndfile::error:: {0} is too long ({1}) in {2}, maximum length is {3}".format(field, length, commands_id_to_name[command], max_length))
+        strcpy(dst, tmp_str)
+        return length
+    else:
+        dst[0] = 0;
+        return 0
+
+cdef str _read_from_char_field(char* src, int size):
+    cdef char* zero = <char*>memchr(src, 0, size)
+    if zero:
+        size = zero - src
+    return src[:size].decode("UTF-8")
+
+cdef int _assign_char_field(char* dst, value, int max_length, command, field):
+    cdef int length
+    if value:
+        tmp_str = value.encode("UTF-8")
+        length = len(tmp_str)
+        if length > max_length:
+            raise RuntimeError("PySndfile::error:: {0} is too long ({1}) in {2}, maximum length is {3}".format(field, length, commands_id_to_name[command], max_length))
+        for si in range(length):
+            dst[si] = tmp_str[si]
+    else:
+        length = 0
+    if length < max_length:
+        dst[length] = 0
+    return length
 
 def get_sndfile_version():
     """
@@ -770,7 +1152,6 @@ cdef extern from *:
     cdef filename_type convert_filename "PySndfile_convert_filename" (const string& self_filename, object filename)
     cdef void free_filename "PySndfile_free_filename" (filename_type filename)
     
-
 cdef class PySndfile:
     """\
     PySndfile is a python class for reading/writing audio files.
@@ -920,10 +1301,90 @@ cdef class PySndfile:
         :return: <int> 1 for success or True, 0 for failure or False
         """
         if isinstance(command, str) :
-            return self.thisPtr.command(commands_name_to_id[command], NULL, arg)
-        # so we suppose it is an int
-        return self.thisPtr.command(command, NULL, arg)
-        
+            return self.command(commands_name_to_id[command], arg)
+
+        if command in [C_SFC_GET_LIB_VERSION, C_SFC_GET_SIMPLE_FORMAT_COUNT, C_SFC_GET_SIMPLE_FORMAT, C_SFC_GET_FORMAT_INFO, C_SFC_GET_FORMAT_MAJOR_COUNT, C_SFC_GET_FORMAT_MAJOR, C_SFC_GET_FORMAT_SUBTYPE_COUNT, C_SFC_GET_FORMAT_SUBTYPE]:
+            null_handle = True
+        else:
+            if (self.thisPtr == NULL) or not self.thisPtr:
+                raise RuntimeError("PySndfile::error::no valid soundfilehandle")
+            null_handle = False
+
+        if command == C_SFC_GET_LIB_VERSION or command == C_SFC_GET_LOG_INFO:
+            return self._string_out_command(command, null_handle)
+        if command == C_SFC_GET_CURRENT_SF_INFO:
+            return self._get_current_sf_info()
+        if command in [C_SFC_GET_NORM_DOUBLE, C_SFC_GET_NORM_FLOAT, C_SFC_GET_CLIPPING, C_SFC_RAW_DATA_NEEDS_ENDSWAP, C_SFC_UPDATE_HEADER_NOW]:
+            return self.thisPtr.command(command, NULL, 0)
+        if command in [C_SFC_SET_NORM_DOUBLE, C_SFC_SET_NORM_FLOAT, C_SFC_SET_SCALE_FLOAT_INT_READ, C_SFC_SET_SCALE_INT_FLOAT_WRITE, C_SFC_SET_ADD_PEAK_CHUNK, C_SFC_SET_UPDATE_HEADER_AUTO, C_SFC_SET_CLIPPING, C_SFC_RF64_AUTO_DOWNGRADE, C_SFC_TEST_IEEE_FLOAT_REPLACE, C_SFC_SET_ADD_HEADER_PAD_CHUNK]:
+            return self._bool_set_command(command, arg, command in [C_SFC_SET_ADD_PEAK_CHUNK, C_SFC_SET_UPDATE_HEADER_AUTO, C_SFC_SET_CLIPPING, C_SFC_RF64_AUTO_DOWNGRADE, C_SFC_SET_ADD_HEADER_PAD_CHUNK], command == C_SFC_TEST_IEEE_FLOAT_REPLACE)
+        if command in [C_SFC_GET_SIMPLE_FORMAT_COUNT, C_SFC_GET_FORMAT_MAJOR_COUNT, C_SFC_GET_FORMAT_SUBTYPE_COUNT, C_SFC_GET_ORIGINAL_SAMPLERATE, C_SFC_GET_DITHER_INFO_COUNT]:
+            return self._int_get_command(command, null_handle, command == C_SFC_GET_ORIGINAL_SAMPLERATE)
+        if command in [C_SFC_GET_SIMPLE_FORMAT, C_SFC_GET_FORMAT_MAJOR, C_SFC_GET_FORMAT_SUBTYPE, C_SFC_GET_FORMAT_INFO]:
+            return self._format_get_command(command, arg)
+        if command in [C_SFC_CALC_SIGNAL_MAX, C_SFC_CALC_NORM_SIGNAL_MAX, C_SFC_GET_SIGNAL_MAX]:
+            return self._double_get_command(command, command == C_SFC_GET_SIGNAL_MAX)
+        if command in [C_SFC_CALC_MAX_ALL_CHANNELS, C_SFC_CALC_NORM_MAX_ALL_CHANNELS, C_SFC_GET_MAX_ALL_CHANNELS]:
+            return self._double_channel_get_command(command, command == C_SFC_GET_MAX_ALL_CHANNELS)
+        if command in [C_SFC_FILE_TRUNCATE, C_SFC_SET_RAW_START_OFFSET]:
+            return self._sf_count_set_command(command, arg, command == C_SFC_SET_RAW_START_OFFSET)
+        if command == C_SFC_GET_EMBED_FILE_INFO:
+            return self._embed_get_command(command)
+        if command == C_SFC_GET_CUE_COUNT:
+            return self._uint32_get_command(command)
+        if command == C_SFC_GET_CUE:
+            return self._cue_get_command(command)
+        if command == C_SFC_SET_CUE:
+            return self._cue_set_command(command, arg)
+        if command == C_SFC_GET_INSTRUMENT:
+            return self._instrument_get_command(command)
+        if command == C_SFC_SET_INSTRUMENT:
+            return self._instrument_set_command(command, arg)
+        if command == C_SFC_GET_LOOP_INFO:
+            return self._loop_get_command(command)
+        if command == C_SFC_GET_BROADCAST_INFO:
+            return self._broadcast_get_command(command)
+        if command == C_SFC_SET_BROADCAST_INFO:
+            return self._broadcast_set_command(command, arg)
+        if command == C_SFC_GET_CHANNEL_MAP_INFO:
+            return self._channel_map_get_command(command)
+        if command == C_SFC_SET_CHANNEL_MAP_INFO:
+            return self._channel_map_set_command(command, arg)
+        if command == C_SFC_WAVEX_SET_AMBISONIC:
+            _check_command_retval(self.thisPtr.command(command, NULL, ambisonic_name_to_id[arg]), command, C_SF_FALSE)
+            return None
+        if command == C_SFC_WAVEX_GET_AMBISONIC:
+            return ambisonic_id_to_name[_check_command_retval(self.thisPtr.command(command, NULL, 0), command, C_SF_FALSE)]
+        if command in [C_SFC_SET_VBR_ENCODING_QUALITY, C_SFC_SET_COMPRESSION_LEVEL]:
+            self._double_set_command(command, arg, [0., 1.], True)
+            return None
+        if command in [C_SFC_SET_OGG_PAGE_LATENCY_MS, C_SFC_SET_OGG_PAGE_LATENCY]:
+            self._double_set_command(command, arg, [50., 1600.], False)
+            return None
+        if command == C_SFC_GET_OGG_STREAM_SERIALNO:
+            return self._int32_get_command(command)
+        if command == C_SFC_GET_BITRATE_MODE:
+            return bitrate_mode_id_to_name[_check_command_retval(self.thisPtr.command(command, NULL, 0), command, -1)]
+        if command == C_SFC_SET_BITRATE_MODE:
+            return self._bitrate_set_command(command, arg)
+        if command == C_SFC_SET_CART_INFO:
+            return self._cart_set_command(command, arg)
+        if command == C_SFC_GET_CART_INFO:
+            return self._cart_get_command(command)
+        if command == C_SFC_SET_ORIGINAL_SAMPLERATE:
+            return self._int_set_command(command, arg)
+        if command in [C_SFC_SET_ADD_DITHER_ON_WRITE, C_SFC_SET_ADD_DITHER_ON_READ]:
+            _check_command_retcode(self.thisPtr.command(command, NULL, 0), command)
+            return None
+        # not documented but maybe implemented in 1.2.2
+        if command in [C_SFC_SET_DITHER_ON_WRITE, C_SFC_SET_DITHER_ON_READ]:
+            return self._dither_set_command(command, arg)
+        # not documented or implemented in 1.2.2
+        if command == C_SFC_GET_DITHER_INFO:
+            return self._dither_get_command(command)
+#fnord
+
+        raise RuntimeError("PySndfile::error::unknow command {0}".format(command))
 
     def set_compression_level(self, level:float):
         """
@@ -1407,6 +1868,445 @@ cdef class PySndfile:
             msg = "libsndfile error while rewinding:: {0}".format(self.thisPtr.strError())
             raise IOError(msg)
         return pos            
+
+    def _string_out_command(self, command, null_handle):
+        # string buffer, returns string size (not needed)
+        cdef char buf[2048]
+        if null_handle:
+            ret = sf_command(NULL, command, buf, sizeof(buf))
+        else:
+            ret = self.thisPtr.command(command, buf, sizeof(buf))
+        return str(buf)
+
+    def _get_current_sf_info(self):
+        cdef SF_INFO info
+        retcode = self.thisPtr.command(C_SFC_GET_CURRENT_SF_INFO, &info, sizeof(info))
+        _check_command_retcode(retcode, C_SFC_GET_CURRENT_SF_INFO)
+        return SfInfoData(frames = info.frames, samplerate = info.samplerate,
+                          channels = info.channels, format = info.format,
+                          sections = info.sections, seekable = info.seekable)
+
+    def _bool_set_command(self, command, arg, compare_return, check_retcode):
+        if arg != C_SF_FALSE and arg != C_SF_TRUE:
+            raise RuntimeError("PySndfile::error:: command {0} argument {1} should be {2} or {3}".format(commands_id_to_name[command], arg, C_SF_FALSE, C_SF_TRUE))
+        cdef int tmp_arg = <int> arg
+        cdef int ret = self.thisPtr.command(command, NULL, tmp_arg)
+        if check_retcode:
+            _check_command_retcode(ret, command)
+            return None
+        if compare_return and ret != tmp_arg:  
+            raise RuntimeError("PySndfile::error:: command {0} failed with current value {1} while it should be set to {2}".format(commands_id_to_name[command], ret, arg))
+        return ret
+
+    def _int_get_command(self, command, null_handle, return_is_hybrid):
+        cdef int tmp_int
+        cdef int ret
+        if null_handle:
+            ret = sf_command(NULL, command, &tmp_int, sizeof(int))
+        else:
+            ret = self.thisPtr.command(command, &tmp_int, sizeof(int))
+        if return_is_hybrid:
+            _check_command_hybrid_retval(ret, command)
+        else:
+            _check_command_retcode(ret, command)
+        return tmp_int
+
+    def _format_get_command(self, command, arg):
+        cdef SF_FORMAT_INFO tmp_info
+        tmp_info.format = <int> arg
+        cdef int retcode
+        retcode = sf_command(NULL, command, &tmp_info, sizeof(SF_FORMAT_INFO))
+        _check_command_retcode(retcode, command)
+        ret = SfFormatInfo(format = tmp_info.format, name = str(tmp_info.name),
+                           extension = None)
+        if tmp_info.extension != NULL:
+            ret.extension = str(tmp_info.extension)
+        return ret
+
+    def _double_get_command(self, command, is_optional):
+        cdef double tmp_double
+        cdef int ret = self.thisPtr.command(command, &tmp_double, sizeof(double))
+        if is_optional:
+            if ret == C_SF_FALSE:
+                return None
+        else:
+            _check_command_retcode(ret, command)
+        return tmp_double
+
+    def _double_channel_get_command(self, command, is_optional):
+        nc = self.thisPtr.channels()
+        cdef cnp.ndarray[cnp.float64_t, ndim=1] ret = np.zeros(nc, dtype=np.float64, order='C')
+        cdef int retcode = self.thisPtr.command(command, <double*>PyArray_DATA(ret), nc * sizeof(double))
+        if is_optional:
+            if retcode == C_SF_FALSE:
+                return None
+        else:
+            _check_command_retcode(retcode, command)
+        return ret
+
+    def _double_set_command(self, command, arg, valid_range, return_is_hybrid):
+        cdef double tmp_double = arg
+        if tmp_double < valid_range[0] or tmp_double > valid_range[1]:
+            raise RuntimeError("PySndfile::error:: value {0} not in range {1}-{2} for command {3}".format(arg, valid_range[0], valid_range[1], commands_id_to_name[command]))
+
+        cdef int ret = self.thisPtr.command(command, &tmp_double, sizeof(double))
+        if return_is_hybrid:
+            _check_command_hybrid_retval(ret, command)
+        else:
+            _check_command_retcode(ret, command)
+        return None
+
+    def _sf_count_set_command(self, command, arg, is_retcode):
+        cdef sf_count_t tmp_arg = <sf_count_t> arg
+        cdef int ret
+        ret = self.thisPtr.command(command, &tmp_arg, sizeof(sf_count_t))
+        if is_retcode:
+            _check_command_retcode(ret, command)
+        else:
+            if ret != 0:
+                raise RuntimeError("PySndfile::error:: command {0} failed".format(commands_id_to_name[command]))
+            else:
+                _check_command_retcode(self.thisPtr.error(), command)
+        return None
+
+    def _dither_set_command(self, command, arg):
+        cdef SF_DITHER_INFO tmp_info
+        tmp_info.type = arg.type
+        tmp_info.level = arg.level
+        tmp_name = arg.name.encode("UTF-8")
+        tmp_info.name = tmp_name
+        ret = self.thisPtr.command(command, &tmp_info, sizeof(SF_DITHER_INFO))
+        _check_command_retcode(ret, command)
+        return None
+
+    def _dither_get_command(self, command):
+        cdef SF_DITHER_INFO tmp_info
+        retcode = self.thisPtr.command(command, &tmp_info, sizeof(SF_DITHER_INFO))
+        _check_command_retcode(retcode, command)
+        return SfDitherInfo(type = tmp_info.type, level = tmp_info.level,
+                            name = tmp_info.name)
+
+    def _embed_get_command(self, command):
+        cdef SF_EMBED_FILE_INFO tmp_info
+        retcode = self.thisPtr.command(command, &tmp_info, sizeof(SF_EMBED_FILE_INFO))
+        _check_command_retcode(retcode, command)
+        return SfEmbedFileInfo(offset = tmp_info.offset,
+                               length = tmp_info.length)
+
+    def _uint32_get_command(self, command):
+        cdef uint32_t ret
+        retcode = self.thisPtr.command(command, &ret, sizeof(uint32_t))
+        if retcode == C_SF_FALSE:
+            ret = 0
+        return ret
+
+    def _cue_get_command(self, command):
+        cdef SF_CUES tmp_cues
+        retcode = self.thisPtr.command(command, &tmp_cues, sizeof(SF_CUES))
+        ret = []
+        if retcode == C_SF_TRUE:
+            for ci in range(tmp_cues.cue_count):
+                ret.append(SfCuePoint(indx = tmp_cues.cue_points[ci].indx,
+                                      position = tmp_cues.cue_points[ci].position,
+                                      fcc_chunk = tmp_cues.cue_points[ci].fcc_chunk,
+                                      chunk_start = tmp_cues.cue_points[ci].chunk_start,
+                                      block_start = tmp_cues.cue_points[ci].block_start,
+                                      sample_offset = tmp_cues.cue_points[ci].sample_offset,
+                                      name = tmp_cues.cue_points[ci].name))
+        return ret
+            
+    def _cue_set_command(self, command, arg):
+        cdef SF_CUES tmp_cues
+        tmp_cues.cue_count = len(arg)
+        if tmp_cues.cue_count > 100:
+            raise RuntimeError("PySndfile::error:: too many cues ({0}) in SFC_SET_CUE, maximum is 100".format(tmp_cues.cue_count))
+        for ci in range(tmp_cues.cue_count):
+            tmp_cues.cue_points[ci].indx = arg[ci].indx
+            tmp_cues.cue_points[ci].position = arg[ci].position
+            tmp_cues.cue_points[ci].fcc_chunk = arg[ci].fcc_chunk
+            tmp_cues.cue_points[ci].chunk_start = arg[ci].chunk_start
+            tmp_cues.cue_points[ci].block_start = arg[ci].block_start
+            tmp_cues.cue_points[ci].sample_offset = arg[ci].sample_offset
+            _assign_string_field(tmp_cues.cue_points[ci].name, arg[ci].name, 255, command, "name")
+        retcode = self.thisPtr.command(command, &tmp_cues, sizeof(SF_CUES))
+        _check_command_retval(retcode, command, C_SF_FALSE)
+        return None
+
+    def _instrument_get_command(self, command):
+        cdef SF_INSTRUMENT tmp_inst
+        retcode = self.thisPtr.command(command, &tmp_inst, sizeof(SF_INSTRUMENT))
+        cdef loop_t* loops = <loop_t*> tmp_inst.loops
+        if retcode == C_SF_TRUE:
+            ret = SfInstrument 
+            ret.gain = tmp_inst.gain
+            ret.basenote = tmp_inst.basenote
+            ret.detune = tmp_inst.detune
+            ret.velocity_lo = tmp_inst.velocity_lo
+            ret.velocity_hi = tmp_inst.velocity_hi
+            ret.key_lo = tmp_inst.key_lo
+            ret.key_hi = tmp_inst.key_hi
+            ret.loops = []
+            for li in range(tmp_inst.loop_count):
+                ret.loops.append(SfInstrumentLoop(
+                                     mode = loop_id_to_name[loops[li].mode], 
+                                     start = loops[li].start, 
+                                     end = loops[li].end, 
+                                     count = loops[li].count))
+            return ret
+        else:
+            return None
+
+    def _instrument_set_command(self, command, arg):
+        cdef SF_INSTRUMENT tmp_inst
+        tmp_inst.loop_count = len(arg.loops)
+        if tmp_inst.loop_count > 16:
+            raise RuntimeError("PySndfile::error:: too many loops ({0}) in {1}, maximum is 16".format(tmp_inst.loop_count, command))
+        cdef loop_t* loops = <loop_t*> tmp_inst.loops
+        tmp_inst.gain = arg.gain
+        tmp_inst.basenote = _check_char_range(arg.basenote, command, "basenote")
+        tmp_inst.detune = _check_char_range(arg.detune, command, "detune")
+        tmp_inst.velocity_lo = _check_char_range(arg.velocity_lo, command, "velocity_lo")
+        tmp_inst.velocity_hi = _check_char_range(arg.velocity_hi, command, "velocity_hi")
+        tmp_inst.key_lo = _check_char_range(arg.key_lo, command, "key_lo")
+        tmp_inst.key_hi = _check_char_range(arg.key_hi, command, "key_hi")
+        for li in range(tmp_inst.loop_count):
+            if arg.loops[li].mode not in loop_name_to_id:
+                raise RuntimeError("PySndfile::error:: unknow loop mode ({0}) in {1}".format(arg.loops[li].mode, command))
+            loops[li].mode = loop_name_to_id[arg.loops[li].mode]
+            loops[li].start = arg.loops[li].start
+            loops[li].end = arg.loops[li].end
+            loops[li].count = arg.loops[li].count
+        retcode = self.thisPtr.command(command, &tmp_inst, sizeof(SF_INSTRUMENT))
+        _check_command_retval(retcode, command, C_SF_FALSE)
+        return None
+        
+    def _loop_get_command(self, command):
+        cdef SF_LOOP_INFO tmp_loop
+        retcode = self.thisPtr.command(command, &tmp_loop, sizeof(SF_LOOP_INFO))
+        if retcode == C_SF_TRUE:
+            ret = SfLoopInfo
+            ret.time_sig_num = tmp_loop.time_sig_num
+            ret.time_sig_den = tmp_loop.time_sig_den
+            ret.loop_ùode = loop_id_to_name[tmp_loop.loop_mode], 
+            ret.num_beats = tmp_loop.num_beats
+            ret.bpm = tmp_loop.bpm
+            ret.root_key = tmp_loop.root_key
+            ret.future = []
+            for fi in range(6):
+                ret.future.append(tmp_loop.future[fi])
+            return ret
+        else:
+            return None
+
+    def _broadcast_get_command(self, command):
+        cdef SF_BROADCAST_INFO tmp_info
+        retcode = self.thisPtr.command(command, &tmp_info, sizeof(SF_BROADCAST_INFO))
+        if retcode == C_SF_TRUE:
+            return SfBroadcastInfo(description = _read_from_char_field(tmp_info.description, 256),
+                                   originator = _read_from_char_field(tmp_info.originator, 32),
+                                   originator_reference = _read_from_char_field(tmp_info.originator_reference, 32),
+                                   origination_date = _read_from_char_field(tmp_info.origination_date, 10),
+                                   origination_time = _read_from_char_field(tmp_info.origination_time, 8),
+                                   time_reference = (<uint64_t>pow(2.0, 32)) * tmp_info.time_reference_high + tmp_info.time_reference_low,
+                                   version = tmp_info.version,
+                                   umid = tmp_info.umid[:64],
+                                   loudness_value = tmp_info.loudness_value,
+                                   loudness_range = tmp_info.loudness_range,
+                                   max_true_peak_level = tmp_info.max_true_peak_level,
+                                   max_momentary_loudness = tmp_info.max_momentary_loudness,
+                                   max_shortterm_loudness = tmp_info.max_shortterm_loudness,
+                                   coding_history = tmp_info.coding_history[:tmp_info.coding_history_size])
+        else:
+            return None
+
+    def _broadcast_set_command(self, command, arg):
+        cdef SF_BROADCAST_INFO tmp_info
+        _assign_char_field(tmp_info.description, arg.description, 256, command,
+                           "description")
+        _assign_char_field(tmp_info.originator, arg.originator, 32, command,
+                           "originator")
+        _assign_char_field(tmp_info.originator_reference,
+                           arg.originator_reference, 32, command,
+                           "originator_reference")
+        _assign_char_field(tmp_info.origination_date, arg.origination_date, 10,
+                           command, "origination_date")
+        _assign_char_field(tmp_info.origination_time, arg.origination_time, 8,
+                           command, "origination_time")
+        cdef uint64_t timeref = arg.time_reference
+        tmp_info.time_reference_low = timeref & 0xffffffff
+        tmp_info.time_reference_high = timeref >> 32
+        tmp_info.version = arg.version
+        cdef size_t length
+        if arg.umid:
+            length = len(arg.umid)
+            if length > 64:
+                raise RuntimeError("PySndfile::error:: umid is too long ({0}) in {1}, maximum length is 64".format(length, commands_id_to_name[command]))
+            for ui in range(length):
+                tmp_info.umid[ui] = arg.umid[ui]
+            if length < 64:
+                memset(tmp_info.umid + length, 0, 64 - length)
+        else:
+            memset(tmp_info.umid, 0, 64)
+        tmp_info.loudness_value = _check_int16_range(arg.loudness_value,
+                                                     command,
+                                                    "loudness_value")
+        tmp_info.loudness_range = _check_int16_range(arg.loudness_range,
+                                                     command, "loudness_range")
+        tmp_info.max_true_peak_level = _check_int16_range(arg.max_true_peak_level,
+                                                          command,
+                                                          "max_true_peak_level")
+        tmp_info.max_momentary_loudness = _check_int16_range(arg.max_momentary_loudness,
+                                                             command,
+                                                             "max_momentary_loudness")
+        tmp_info.max_shortterm_loudness = _check_int16_range(arg.max_shortterm_loudness,
+                                                             command,
+                                                             "max_shortterm_loudness")
+        memset(tmp_info.reserved, 0, 180)
+        tmp_info.coding_history_size = _assign_char_field(tmp_info.coding_history,
+                                                          arg.coding_history,
+                                                          256, command,
+                                                          "coding_history")
+        retcode = self.thisPtr.command(command, &tmp_info, sizeof(SF_BROADCAST_INFO))
+        _check_command_retval(retcode, command, C_SF_FALSE)
+        return None
+
+    def _channel_map_get_command(self, command):
+        cdef size_t nc = self.thisPtr.channels()
+        cdef size_t datasize = nc * sizeof(int)
+        cdef int* tmp_map = <int*>malloc(datasize)
+        try:
+            retcode = self.thisPtr.command(command, tmp_map, datasize)
+            if retcode == C_SF_TRUE:
+                ret = []
+                for ci in range(nc):
+                    ret.append(channel_map_id_to_name[tmp_map[ci]])
+                return ret
+            else:
+                return None
+        finally:
+            free(tmp_map)
+
+    def _channel_map_set_command(self, command, arg):
+        nc = self.thisPtr.channels()
+        if len(arg) != nc:
+            raise RuntimeError("PySndfile::error:: wrong number of channels ({0}) in {1}, should be {2}".format(len(arg), commands_id_to_name[command], nc))
+        cdef int datasize = nc * sizeof(int)
+        cdef int* tmp_map = <int*>malloc(datasize)
+        try:
+            for ci in range(nc):
+                tmp_map[ci] = channel_map_name_to_id[arg[ci]]
+            retcode = self.thisPtr.command(command, tmp_map, datasize)
+            _check_command_retval(retcode, command, C_SF_FALSE)
+        finally:
+            free(tmp_map)
+        return None
+
+    def _int32_get_command(self, command):
+        cdef int32_t tmp_int
+        cdef int ret = self.thisPtr.command(command, &tmp_int, sizeof(int32_t))
+        _check_command_retval(ret, command, C_SF_FALSE)
+        return tmp_int
+
+    def _bitrate_set_command(self, command, arg):
+        cdef int tmp_int = bitrate_mode_name_to_id[arg]
+        _check_command_retval(self.thisPtr.command(command, &tmp_int, sizeof(int)), command, C_SF_FALSE)
+        return None
+
+    def _cart_set_command(self, command, arg):
+        cdef SF_CART_INFO tmp_info
+        _assign_char_field(tmp_info.version, arg.version, 4, command, "version")
+        _assign_char_field(tmp_info.title, arg.title, 64, command, "title")
+        _assign_char_field(tmp_info.artist, arg.artist, 64, command, "artist")
+        _assign_char_field(tmp_info.cut_id, arg.cut_id, 64, command, "cut_id")
+        _assign_char_field(tmp_info.client_id, arg.client_id, 64, command,
+                           "client_id")
+        _assign_char_field(tmp_info.category, arg.category, 64, command,
+                           "category")
+        _assign_char_field(tmp_info.classification, arg.classification, 64,
+                           command, "classification")
+        _assign_char_field(tmp_info.out_cue, arg.out_cue, 64, command,
+                           "out_cue")
+        _assign_char_field(tmp_info.start_date, arg.start_date, 10, command,
+                           "start_date")
+        _assign_char_field(tmp_info.start_time, arg.start_time, 8, command,
+                           "start_time")
+        _assign_char_field(tmp_info.end_date, arg.end_date, 10, command,
+                           "end_date")
+        _assign_char_field(tmp_info.end_time, arg.end_time, 8, command,
+                           "end_time")
+        _assign_char_field(tmp_info.producer_app_id, arg.producer_app_id, 64,
+                           command, "producer_app_id")
+        _assign_char_field(tmp_info.producer_app_version,
+                           arg.producer_app_version, 64, command,
+                           "producer_app_version")
+        _assign_char_field(tmp_info.user_def, arg.user_def, 64, command,
+                           "user_def")
+        tmp_info.level_reference = _check_int32_range(arg.level_reference,
+                                                      command,
+                                                      "level_reference")
+        l = len(arg.post_timers)
+        if l > 8:
+            raise RuntimeError("PySndfile::error:: command {0} post_times is too big ({1}) maximum size is 8".format(commands_id_to_name[command], l))
+        memset(tmp_info.post_timers, 0, 8 * sizeof(SF_CART_TIMER))
+        for pti in range(l):
+            _assign_char_field(tmp_info.post_timers[pti].usage,
+                               arg.post_timers[pti].usage, 4, command,
+                               "post_timers.usage")
+            tmp_info.post_timers[pti].value = _check_int32_range(arg.post_timers[pti].value,
+                                                                 command,
+                                                                 "post_timers.value")
+        memset(tmp_info.reserved, 0, 276)
+        _assign_char_field(tmp_info.url, arg.url, 1024, command, "url")
+        tmp_info.tag_text_size = _assign_char_field(tmp_info.tag_text,
+                                                    arg.tag_text, 256, command,
+                                                    "tag_text")
+        retcode = self.thisPtr.command(command, &tmp_info, sizeof(SF_CART_INFO))
+        _check_command_retval(retcode, command, C_SF_FALSE)
+        return None
+
+    def _cart_get_command(self, command):
+        cdef SF_CART_INFO tmp_info
+        retcode = self.thisPtr.command(command, &tmp_info, sizeof(SF_CART_INFO))
+        if retcode == C_SF_TRUE:
+            ret = SfCartInfo
+            ret.version = _read_from_char_field(tmp_info.version, 4)
+            ret.title = _read_from_char_field(tmp_info.title, 64)
+            ret.artist = _read_from_char_field(tmp_info.artist, 64)
+            ret.cut_id = _read_from_char_field(tmp_info.cut_id, 64)
+            ret.client_id = _read_from_char_field(tmp_info.client_id, 64)
+            ret.category = _read_from_char_field(tmp_info.category, 64)
+            ret.classification = _read_from_char_field(tmp_info.classification,
+                                                       64)
+            ret.out_cue = _read_from_char_field(tmp_info.out_cue, 64)
+            ret.start_date = _read_from_char_field(tmp_info.start_date, 10)
+            ret.start_time = _read_from_char_field(tmp_info.title, 8)
+            ret.end_date = _read_from_char_field(tmp_info.end_date, 10)
+            ret.end_time = _read_from_char_field(tmp_info.end_time, 8)
+            ret.producer_app_id = _read_from_char_field(tmp_info.producer_app_id,
+                                                        64)
+            ret.producer_app_version = _read_from_char_field(tmp_info.producer_app_version,
+                                                             64)
+            ret.user_def = _read_from_char_field(tmp_info.user_def, 64)
+            ret.level_reference = tmp_info.level_reference
+            ret.post_timers = []
+            for pti in range(8):
+                if tmp_info.post_timers[pti].usage[0]:
+                    ret.post_timers.append(SfCartTimer(usage = _read_from_char_field(tmp_info.post_timers[pti].usage, 4),
+                                                       value = tmp_info.post_timers[pti].value))
+            ret.url = _read_from_char_field(tmp_info.url, 1024)
+            text_size = tmp_info.tag_text_size
+            if text_size > 256:
+                text_size = 256
+            ret.tag_text = tmp_info.tag_text[:text_size]
+            return ret
+        else:
+            return None
+
+    def _int_set_command(self, command, arg):
+        cdef int tmp_int = arg
+        _check_command_hybrid_retval(self.thisPtr.command(command, &tmp_int, sizeof(int)), command)
+        return None
+#fnord
 
 cdef _construct_format(major, encoding) :
     """
