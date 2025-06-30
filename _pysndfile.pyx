@@ -1382,7 +1382,6 @@ cdef class PySndfile:
         # not documented or implemented in 1.2.2
         if command == C_SFC_GET_DITHER_INFO:
             return self._dither_get_command(command)
-#fnord
 
         raise RuntimeError("PySndfile::error::unknow command {0}".format(command))
 
@@ -2002,34 +2001,61 @@ cdef class PySndfile:
 
     def _cue_get_command(self, command):
         cdef SF_CUES tmp_cues
-        retcode = self.thisPtr.command(command, &tmp_cues, sizeof(SF_CUES))
+        cdef SF_CUES* cue_ptr = NULL
+        cdef int cue_size
+        cdef uint32_t cue_count
+        retcode = self.thisPtr.command(C_SFC_GET_CUE_COUNT, &cue_count, sizeof(uint32_t))
+        if retcode == C_SF_FALSE:
+            return []
         ret = []
-        if retcode == C_SF_TRUE:
-            for ci in range(tmp_cues.cue_count):
-                ret.append(SfCuePoint(indx = tmp_cues.cue_points[ci].indx,
-                                      position = tmp_cues.cue_points[ci].position,
-                                      fcc_chunk = tmp_cues.cue_points[ci].fcc_chunk,
-                                      chunk_start = tmp_cues.cue_points[ci].chunk_start,
-                                      block_start = tmp_cues.cue_points[ci].block_start,
-                                      sample_offset = tmp_cues.cue_points[ci].sample_offset,
-                                      name = tmp_cues.cue_points[ci].name))
+        try:
+            if cue_count > 100:
+                cue_size = sizeof(SF_CUES) + (cue_count - 100) * sizeof(SF_CUE_POINT)
+                cue_ptr = <SF_CUES*>malloc(cue_size)
+            else:
+                cue_ptr = &tmp_cues
+                cue_size = sizeof(SF_CUES)
+            retcode = self.thisPtr.command(command, cue_ptr, cue_size)
+            if retcode == C_SF_TRUE:
+                for ci in range(cue_ptr.cue_count):
+                    ret.append(SfCuePoint(indx = cue_ptr.cue_points[ci].indx,
+                                          position = cue_ptr.cue_points[ci].position,
+                                          fcc_chunk = cue_ptr.cue_points[ci].fcc_chunk,
+                                          chunk_start = cue_ptr.cue_points[ci].chunk_start,
+                                          block_start = cue_ptr.cue_points[ci].block_start,
+                                          sample_offset = cue_ptr.cue_points[ci].sample_offset,
+                                          name = cue_ptr.cue_points[ci].name))
+        finally:
+            if cue_size != sizeof(SF_CUES):
+                free(cue_ptr)
         return ret
             
     def _cue_set_command(self, command, arg):
         cdef SF_CUES tmp_cues
+        cdef SF_CUES* cue_ptr = NULL
+        cdef int cue_size
         tmp_cues.cue_count = len(arg)
-        if tmp_cues.cue_count > 100:
-            raise RuntimeError("PySndfile::error:: too many cues ({0}) in SFC_SET_CUE, maximum is 100".format(tmp_cues.cue_count))
-        for ci in range(tmp_cues.cue_count):
-            tmp_cues.cue_points[ci].indx = arg[ci].indx
-            tmp_cues.cue_points[ci].position = arg[ci].position
-            tmp_cues.cue_points[ci].fcc_chunk = arg[ci].fcc_chunk
-            tmp_cues.cue_points[ci].chunk_start = arg[ci].chunk_start
-            tmp_cues.cue_points[ci].block_start = arg[ci].block_start
-            tmp_cues.cue_points[ci].sample_offset = arg[ci].sample_offset
-            _assign_string_field(tmp_cues.cue_points[ci].name, arg[ci].name, 255, command, "name")
-        retcode = self.thisPtr.command(command, &tmp_cues, sizeof(SF_CUES))
-        _check_command_retval(retcode, command, C_SF_FALSE)
+        try:
+            if tmp_cues.cue_count > 100:
+                cue_size = sizeof(SF_CUES) + (tmp_cues.cue_count - 100) * sizeof(SF_CUE_POINT)
+                cue_ptr = <SF_CUES*>malloc(cue_size)
+                cue_ptr.cue_count = tmp_cues.cue_count
+            else:
+                cue_ptr = &tmp_cues
+                cue_size = sizeof(SF_CUES)
+            for ci in range(cue_ptr.cue_count):
+                cue_ptr.cue_points[ci].indx = arg[ci].indx
+                cue_ptr.cue_points[ci].position = arg[ci].position
+                cue_ptr.cue_points[ci].fcc_chunk = arg[ci].fcc_chunk
+                cue_ptr.cue_points[ci].chunk_start = arg[ci].chunk_start
+                cue_ptr.cue_points[ci].block_start = arg[ci].block_start
+                cue_ptr.cue_points[ci].sample_offset = arg[ci].sample_offset
+                _assign_string_field(cue_ptr.cue_points[ci].name, arg[ci].name, 255, command, "name")
+            retcode = self.thisPtr.command(command, cue_ptr, cue_size)
+            _check_command_retval(retcode, command, C_SF_FALSE)
+        finally:
+            if cue_size != sizeof(SF_CUES):
+                free(cue_ptr)
         return None
 
     def _instrument_get_command(self, command):
@@ -2306,7 +2332,6 @@ cdef class PySndfile:
         cdef int tmp_int = arg
         _check_command_hybrid_retval(self.thisPtr.command(command, &tmp_int, sizeof(int)), command)
         return None
-#fnord
 
 cdef _construct_format(major, encoding) :
     """
