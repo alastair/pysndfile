@@ -2332,95 +2332,120 @@ cdef class PySndfile:
 
     def _cart_set_command(self, command, arg):
         cdef SF_CART_INFO tmp_info
-        _assign_char_field(tmp_info.version, arg.version, 4, command, "version")
-        _assign_char_field(tmp_info.title, arg.title, 64, command, "title")
-        _assign_char_field(tmp_info.artist, arg.artist, 64, command, "artist")
-        _assign_char_field(tmp_info.cut_id, arg.cut_id, 64, command, "cut_id")
-        _assign_char_field(tmp_info.client_id, arg.client_id, 64, command,
-                           "client_id")
-        _assign_char_field(tmp_info.category, arg.category, 64, command,
-                           "category")
-        _assign_char_field(tmp_info.classification, arg.classification, 64,
-                           command, "classification")
-        _assign_char_field(tmp_info.out_cue, arg.out_cue, 64, command,
-                           "out_cue")
-        _assign_char_field(tmp_info.start_date, arg.start_date, 10, command,
-                           "start_date")
-        _assign_char_field(tmp_info.start_time, arg.start_time, 8, command,
-                           "start_time")
-        _assign_char_field(tmp_info.end_date, arg.end_date, 10, command,
-                           "end_date")
-        _assign_char_field(tmp_info.end_time, arg.end_time, 8, command,
-                           "end_time")
-        _assign_char_field(tmp_info.producer_app_id, arg.producer_app_id, 64,
-                           command, "producer_app_id")
-        _assign_char_field(tmp_info.producer_app_version,
-                           arg.producer_app_version, 64, command,
-                           "producer_app_version")
-        _assign_char_field(tmp_info.user_def, arg.user_def, 64, command,
-                           "user_def")
-        tmp_info.level_reference = _check_int32_range(arg.level_reference,
-                                                      command,
-                                                      "level_reference")
-        l = len(arg.post_timers)
-        if l > 8:
-            raise RuntimeError("PySndfile::error:: command {0} post_times is too big ({1}) maximum size is 8".format(commands_id_to_name[command], l))
-        memset(tmp_info.post_timers, 0, 8 * sizeof(SF_CART_TIMER))
-        for pti in range(l):
-            _assign_char_field(tmp_info.post_timers[pti].usage,
-                               arg.post_timers[pti].usage, 4, command,
-                               "post_timers.usage")
-            tmp_info.post_timers[pti].value = \
-                _check_int32_range(arg.post_timers[pti].value, command,
-                                   "post_timers.value")
-        memset(tmp_info.reserved, 0, 276)
-        _assign_char_field(tmp_info.url, arg.url, 1024, command, "url")
-        tmp_info.tag_text_size = _assign_char_field(tmp_info.tag_text,
-                                                    arg.tag_text, 256, command,
-                                                    "tag_text")
-        retcode = self.thisPtr.command(command, &tmp_info, sizeof(SF_CART_INFO))
-        _check_command_retval(retcode, command, C_SF_FALSE)
+        cdef SF_CART_INFO* info_ptr = &tmp_info
+        cdef int info_size = sizeof(SF_CART_INFO)
+        cdef size_t length
+        tmp_str = arg.tag_text.encode("UTF-8")
+        tag_text_size = len(tmp_str) + 1
+        try:
+            if tag_text_size > 256:
+                info_size = sizeof(SF_CART_INFO) + (tag_text_size - 256)
+                info_ptr = <SF_CART_INFO*>malloc(info_size)
+            _assign_char_field(info_ptr.version, arg.version, 4, command,
+                               "version")
+            _assign_char_field(info_ptr.title, arg.title, 64, command, "title")
+            _assign_char_field(info_ptr.artist, arg.artist, 64, command,
+                               "artist")
+            _assign_char_field(info_ptr.cut_id, arg.cut_id, 64, command,
+                               "cut_id")
+            _assign_char_field(info_ptr.client_id, arg.client_id, 64, command,
+                               "client_id")
+            _assign_char_field(info_ptr.category, arg.category, 64, command,
+                               "category")
+            _assign_char_field(info_ptr.classification, arg.classification, 64,
+                               command, "classification")
+            _assign_char_field(info_ptr.out_cue, arg.out_cue, 64, command,
+                               "out_cue")
+            _assign_char_field(info_ptr.start_date, arg.start_date, 10, command,
+                               "start_date")
+            _assign_char_field(info_ptr.start_time, arg.start_time, 8, command,
+                               "start_time")
+            _assign_char_field(info_ptr.end_date, arg.end_date, 10, command,
+                               "end_date")
+            _assign_char_field(info_ptr.end_time, arg.end_time, 8, command,
+                               "end_time")
+            _assign_char_field(info_ptr.producer_app_id, arg.producer_app_id,
+                               64, command, "producer_app_id")
+            _assign_char_field(info_ptr.producer_app_version,
+                               arg.producer_app_version, 64, command,
+                               "producer_app_version")
+            _assign_char_field(info_ptr.user_def, arg.user_def, 64, command,
+                               "user_def")
+            info_ptr.level_reference = _check_int32_range(arg.level_reference,
+                                                          command,
+                                                          "level_reference")
+            l = len(arg.post_timers)
+            if l > 8:
+                raise RuntimeError("PySndfile::error:: command {0} post_times is too big ({1}) maximum size is 8".format(commands_id_to_name[command], l))
+            memset(info_ptr.post_timers, 0, 8 * sizeof(SF_CART_TIMER))
+            for pti in range(l):
+                _assign_char_field(info_ptr.post_timers[pti].usage,
+                                   arg.post_timers[pti].usage, 4, command,
+                                   "post_timers.usage")
+                info_ptr.post_timers[pti].value = \
+                    _check_int32_range(arg.post_timers[pti].value, command,
+                                       "post_timers.value")
+            memset(info_ptr.reserved, 0, 276)
+            _assign_char_field(info_ptr.url, arg.url, 1024, command, "url")
+            info_ptr.tag_text_size = len(tmp_str)
+            for si in range(info_ptr.tag_text_size):
+                info_ptr.tag_text[si] = tmp_str[si]
+            info_ptr.tag_text[info_ptr.tag_text_size] = 0
+            _check_command_retval(
+                self.thisPtr.command(command, info_ptr, info_size),
+                command, C_SF_FALSE)
+        finally:
+            if info_size != sizeof(SF_CART_INFO):
+                free(info_ptr)
         return None
 
     def _cart_get_command(self, command):
         cdef SF_CART_INFO tmp_info
+        cdef SF_CART_INFO* info_ptr = NULL
         retcode = self.thisPtr.command(command, &tmp_info, sizeof(SF_CART_INFO))
-        if retcode == C_SF_TRUE:
-            text_size = tmp_info.tag_text_size
-            if text_size > 256:
-                text_size = 256
-            ret = SfCartInfo(
-                version = _read_from_char_field(tmp_info.version, 4),
-                title = _read_from_char_field(tmp_info.title, 64),
-                artist = _read_from_char_field(tmp_info.artist, 64),
-                cut_id = _read_from_char_field(tmp_info.cut_id, 64),
-                client_id = _read_from_char_field(tmp_info.client_id, 64),
-                category = _read_from_char_field(tmp_info.category, 64),
-                classification = _read_from_char_field(tmp_info.classification,
-                                                       64),
-                out_cue = _read_from_char_field(tmp_info.out_cue, 64),
-                start_date = _read_from_char_field(tmp_info.start_date, 10),
-                start_time = _read_from_char_field(tmp_info.title, 8),
-                end_date = _read_from_char_field(tmp_info.end_date, 10),
-                end_time = _read_from_char_field(tmp_info.end_time, 8),
-                producer_app_id = _read_from_char_field(tmp_info.producer_app_id,
-                                                        64),
-                producer_app_version = \
-                    _read_from_char_field(tmp_info.producer_app_version, 64),
-                user_def = _read_from_char_field(tmp_info.user_def, 64),
-                level_reference = tmp_info.level_reference,
-                post_timers = [],
-                url = _read_from_char_field(tmp_info.url, 1024),
-                tag_text = tmp_info.tag_text[:text_size])
-            for pti in range(8):
-                if tmp_info.post_timers[pti].usage[0]:
-                    ret.post_timers.append(SfCartTimer(
-                        usage = _read_from_char_field(
-                            tmp_info.post_timers[pti].usage, 4),
-                        value = tmp_info.post_timers[pti].value))
-            return ret
-        else:
+        if retcode != C_SF_TRUE:
             return None
+        ret = SfCartInfo(
+            version = _read_from_char_field(tmp_info.version, 4),
+            title = _read_from_char_field(tmp_info.title, 64),
+            artist = _read_from_char_field(tmp_info.artist, 64),
+            cut_id = _read_from_char_field(tmp_info.cut_id, 64),
+            client_id = _read_from_char_field(tmp_info.client_id, 64),
+            category = _read_from_char_field(tmp_info.category, 64),
+            classification = _read_from_char_field(tmp_info.classification, 64),
+            out_cue = _read_from_char_field(tmp_info.out_cue, 64),
+            start_date = _read_from_char_field(tmp_info.start_date, 10),
+            start_time = _read_from_char_field(tmp_info.title, 8),
+            end_date = _read_from_char_field(tmp_info.end_date, 10),
+            end_time = _read_from_char_field(tmp_info.end_time, 8),
+            producer_app_id = _read_from_char_field(tmp_info.producer_app_id,
+                                                    64),
+            producer_app_version = \
+                _read_from_char_field(tmp_info.producer_app_version, 64),
+            user_def = _read_from_char_field(tmp_info.user_def, 64),
+            level_reference = tmp_info.level_reference, post_timers = [],
+            url = _read_from_char_field(tmp_info.url, 1024), tag_text = None)
+        for pti in range(8):
+            if tmp_info.post_timers[pti].usage[0]:
+                ret.post_timers.append(SfCartTimer(
+                    usage = _read_from_char_field(
+                        tmp_info.post_timers[pti].usage, 4),
+                    value = tmp_info.post_timers[pti].value))
+        if tmp_info.tag_text_size < 256:
+            ret.tag_text = tmp_info.tag_text[:tmp_info.tag_text_size]
+        else:
+            try:
+                info_size = sizeof(SF_CART_INFO) \
+                            + (tmp_info.tag_text_size - 255)
+                info_ptr = <SF_CART_INFO*>malloc(info_size)
+                retcode = self.thisPtr.command(command, info_ptr, info_size)
+                if retcode != C_SF_TRUE \
+                    or tmp_info.tag_text_size != info_ptr.tag_text_size:
+                    raise RuntimeError("PySndfile::error:: second call to {0} for extended tag text failed, this should not happen", command)
+                ret.tag_text = info_ptr.tag_text[:info_ptr.tag_text_size]
+            finally:
+                free(info_ptr)
+        return ret
 
     def _int_set_command(self, command, arg):
         cdef int tmp_int = arg
