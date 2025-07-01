@@ -2118,15 +2118,13 @@ cdef class PySndfile:
                                        sizeof(SF_INSTRUMENT))
         cdef loop_t* loops = <loop_t*> tmp_inst.loops
         if retcode == C_SF_TRUE:
-            ret = SfInstrument 
-            ret.gain = tmp_inst.gain
-            ret.basenote = tmp_inst.basenote
-            ret.detune = tmp_inst.detune
-            ret.velocity_lo = tmp_inst.velocity_lo
-            ret.velocity_hi = tmp_inst.velocity_hi
-            ret.key_lo = tmp_inst.key_lo
-            ret.key_hi = tmp_inst.key_hi
-            ret.loops = []
+            ret = SfInstrument(gain = tmp_inst.gain,
+                               basenote = tmp_inst.basenote,
+                               detune = tmp_inst.detune,
+                               velocity_lo = tmp_inst.velocity_lo,
+                               velocity_hi = tmp_inst.velocity_hi,
+                               key_lo = tmp_inst.key_lo,
+                               key_hi = tmp_inst.key_hi, loops = [])
             for li in range(tmp_inst.loop_count):
                 ret.loops.append(SfInstrumentLoop(
                     mode = loop_id_to_name[loops[li].mode], 
@@ -2167,14 +2165,11 @@ cdef class PySndfile:
         cdef SF_LOOP_INFO tmp_loop
         retcode = self.thisPtr.command(command, &tmp_loop, sizeof(SF_LOOP_INFO))
         if retcode == C_SF_TRUE:
-            ret = SfLoopInfo
-            ret.time_sig_num = tmp_loop.time_sig_num
-            ret.time_sig_den = tmp_loop.time_sig_den
-            ret.loop_ùode = loop_id_to_name[tmp_loop.loop_mode], 
-            ret.num_beats = tmp_loop.num_beats
-            ret.bpm = tmp_loop.bpm
-            ret.root_key = tmp_loop.root_key
-            ret.future = []
+            ret = SfLoopInfo(time_sig_num = tmp_loop.time_sig_num,
+                             time_sig_den = tmp_loop.time_sig_den,
+                             loop_ùode = loop_id_to_name[tmp_loop.loop_mode],
+                             num_beats = tmp_loop.num_beats, bpm = tmp_loop.bpm,
+                             root_key = tmp_loop.root_key, future = [])
             for fi in range(6):
                 ret.future.append(tmp_loop.future[fi])
             return ret
@@ -2391,38 +2386,38 @@ cdef class PySndfile:
         cdef SF_CART_INFO tmp_info
         retcode = self.thisPtr.command(command, &tmp_info, sizeof(SF_CART_INFO))
         if retcode == C_SF_TRUE:
-            ret = SfCartInfo
-            ret.version = _read_from_char_field(tmp_info.version, 4)
-            ret.title = _read_from_char_field(tmp_info.title, 64)
-            ret.artist = _read_from_char_field(tmp_info.artist, 64)
-            ret.cut_id = _read_from_char_field(tmp_info.cut_id, 64)
-            ret.client_id = _read_from_char_field(tmp_info.client_id, 64)
-            ret.category = _read_from_char_field(tmp_info.category, 64)
-            ret.classification = _read_from_char_field(tmp_info.classification,
-                                                       64)
-            ret.out_cue = _read_from_char_field(tmp_info.out_cue, 64)
-            ret.start_date = _read_from_char_field(tmp_info.start_date, 10)
-            ret.start_time = _read_from_char_field(tmp_info.title, 8)
-            ret.end_date = _read_from_char_field(tmp_info.end_date, 10)
-            ret.end_time = _read_from_char_field(tmp_info.end_time, 8)
-            ret.producer_app_id = _read_from_char_field(tmp_info.producer_app_id,
-                                                        64)
-            ret.producer_app_version = \
-                _read_from_char_field(tmp_info.producer_app_version, 64)
-            ret.user_def = _read_from_char_field(tmp_info.user_def, 64)
-            ret.level_reference = tmp_info.level_reference
-            ret.post_timers = []
+            text_size = tmp_info.tag_text_size
+            if text_size > 256:
+                text_size = 256
+            ret = SfCartInfo(
+                version = _read_from_char_field(tmp_info.version, 4),
+                title = _read_from_char_field(tmp_info.title, 64),
+                artist = _read_from_char_field(tmp_info.artist, 64),
+                cut_id = _read_from_char_field(tmp_info.cut_id, 64),
+                client_id = _read_from_char_field(tmp_info.client_id, 64),
+                category = _read_from_char_field(tmp_info.category, 64),
+                classification = _read_from_char_field(tmp_info.classification,
+                                                       64),
+                out_cue = _read_from_char_field(tmp_info.out_cue, 64),
+                start_date = _read_from_char_field(tmp_info.start_date, 10),
+                start_time = _read_from_char_field(tmp_info.title, 8),
+                end_date = _read_from_char_field(tmp_info.end_date, 10),
+                end_time = _read_from_char_field(tmp_info.end_time, 8),
+                producer_app_id = _read_from_char_field(tmp_info.producer_app_id,
+                                                        64),
+                producer_app_version = \
+                    _read_from_char_field(tmp_info.producer_app_version, 64),
+                user_def = _read_from_char_field(tmp_info.user_def, 64),
+                level_reference = tmp_info.level_reference,
+                post_timers = [],
+                url = _read_from_char_field(tmp_info.url, 1024),
+                tag_text = tmp_info.tag_text[:text_size])
             for pti in range(8):
                 if tmp_info.post_timers[pti].usage[0]:
                     ret.post_timers.append(SfCartTimer(
                         usage = _read_from_char_field(
                             tmp_info.post_timers[pti].usage, 4),
                         value = tmp_info.post_timers[pti].value))
-            ret.url = _read_from_char_field(tmp_info.url, 1024)
-            text_size = tmp_info.tag_text_size
-            if text_size > 256:
-                text_size = 256
-            ret.tag_text = tmp_info.tag_text[:text_size]
             return ret
         else:
             return None
