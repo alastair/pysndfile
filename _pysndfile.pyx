@@ -1303,7 +1303,11 @@ cdef class PySndfile:
         if isinstance(command, str) :
             return self.command(commands_name_to_id[command], arg)
 
-        if command in [C_SFC_GET_LIB_VERSION, C_SFC_GET_SIMPLE_FORMAT_COUNT, C_SFC_GET_SIMPLE_FORMAT, C_SFC_GET_FORMAT_INFO, C_SFC_GET_FORMAT_MAJOR_COUNT, C_SFC_GET_FORMAT_MAJOR, C_SFC_GET_FORMAT_SUBTYPE_COUNT, C_SFC_GET_FORMAT_SUBTYPE]:
+        if command in [C_SFC_GET_LIB_VERSION, C_SFC_GET_SIMPLE_FORMAT_COUNT,
+                       C_SFC_GET_SIMPLE_FORMAT, C_SFC_GET_FORMAT_INFO,
+                       C_SFC_GET_FORMAT_MAJOR_COUNT, C_SFC_GET_FORMAT_MAJOR,
+                       C_SFC_GET_FORMAT_SUBTYPE_COUNT,
+                       C_SFC_GET_FORMAT_SUBTYPE]:
             null_handle = True
         else:
             if (self.thisPtr == NULL) or not self.thisPtr:
@@ -1314,20 +1318,46 @@ cdef class PySndfile:
             return self._string_out_command(command, null_handle)
         if command == C_SFC_GET_CURRENT_SF_INFO:
             return self._get_current_sf_info()
-        if command in [C_SFC_GET_NORM_DOUBLE, C_SFC_GET_NORM_FLOAT, C_SFC_GET_CLIPPING, C_SFC_RAW_DATA_NEEDS_ENDSWAP, C_SFC_UPDATE_HEADER_NOW]:
+        if command in [C_SFC_GET_NORM_DOUBLE, C_SFC_GET_NORM_FLOAT,
+                       C_SFC_GET_CLIPPING, C_SFC_RAW_DATA_NEEDS_ENDSWAP,
+                       C_SFC_UPDATE_HEADER_NOW]:
             return self.thisPtr.command(command, NULL, 0)
-        if command in [C_SFC_SET_NORM_DOUBLE, C_SFC_SET_NORM_FLOAT, C_SFC_SET_SCALE_FLOAT_INT_READ, C_SFC_SET_SCALE_INT_FLOAT_WRITE, C_SFC_SET_ADD_PEAK_CHUNK, C_SFC_SET_UPDATE_HEADER_AUTO, C_SFC_SET_CLIPPING, C_SFC_RF64_AUTO_DOWNGRADE, C_SFC_TEST_IEEE_FLOAT_REPLACE, C_SFC_SET_ADD_HEADER_PAD_CHUNK]:
-            return self._bool_set_command(command, arg, command in [C_SFC_SET_ADD_PEAK_CHUNK, C_SFC_SET_UPDATE_HEADER_AUTO, C_SFC_SET_CLIPPING, C_SFC_RF64_AUTO_DOWNGRADE, C_SFC_SET_ADD_HEADER_PAD_CHUNK], command == C_SFC_TEST_IEEE_FLOAT_REPLACE)
-        if command in [C_SFC_GET_SIMPLE_FORMAT_COUNT, C_SFC_GET_FORMAT_MAJOR_COUNT, C_SFC_GET_FORMAT_SUBTYPE_COUNT, C_SFC_GET_ORIGINAL_SAMPLERATE, C_SFC_GET_DITHER_INFO_COUNT]:
-            return self._int_get_command(command, null_handle, command == C_SFC_GET_ORIGINAL_SAMPLERATE)
-        if command in [C_SFC_GET_SIMPLE_FORMAT, C_SFC_GET_FORMAT_MAJOR, C_SFC_GET_FORMAT_SUBTYPE, C_SFC_GET_FORMAT_INFO]:
+        if command in [C_SFC_SET_NORM_DOUBLE, C_SFC_SET_NORM_FLOAT,
+                       C_SFC_SET_SCALE_FLOAT_INT_READ,
+                       C_SFC_SET_SCALE_INT_FLOAT_WRITE,
+                       C_SFC_SET_ADD_PEAK_CHUNK, C_SFC_SET_UPDATE_HEADER_AUTO,
+                       C_SFC_SET_CLIPPING, C_SFC_RF64_AUTO_DOWNGRADE,
+                       C_SFC_TEST_IEEE_FLOAT_REPLACE,
+                       C_SFC_SET_ADD_HEADER_PAD_CHUNK]:
+            return self._bool_set_command(
+                command, arg,
+                command in [C_SFC_SET_ADD_PEAK_CHUNK,
+                            C_SFC_SET_UPDATE_HEADER_AUTO, C_SFC_SET_CLIPPING,
+                            C_SFC_RF64_AUTO_DOWNGRADE,
+                            C_SFC_SET_ADD_HEADER_PAD_CHUNK],
+                command == C_SFC_TEST_IEEE_FLOAT_REPLACE)
+        if command in [C_SFC_GET_SIMPLE_FORMAT_COUNT,
+                       C_SFC_GET_FORMAT_MAJOR_COUNT,
+                       C_SFC_GET_FORMAT_SUBTYPE_COUNT,
+                       C_SFC_GET_ORIGINAL_SAMPLERATE,
+                       C_SFC_GET_DITHER_INFO_COUNT]:
+            return self._int_get_command(
+                command, null_handle, command == C_SFC_GET_ORIGINAL_SAMPLERATE)
+        if command in [C_SFC_GET_SIMPLE_FORMAT, C_SFC_GET_FORMAT_MAJOR,
+                       C_SFC_GET_FORMAT_SUBTYPE, C_SFC_GET_FORMAT_INFO]:
             return self._format_get_command(command, arg)
-        if command in [C_SFC_CALC_SIGNAL_MAX, C_SFC_CALC_NORM_SIGNAL_MAX, C_SFC_GET_SIGNAL_MAX]:
-            return self._double_get_command(command, command == C_SFC_GET_SIGNAL_MAX)
-        if command in [C_SFC_CALC_MAX_ALL_CHANNELS, C_SFC_CALC_NORM_MAX_ALL_CHANNELS, C_SFC_GET_MAX_ALL_CHANNELS]:
-            return self._double_channel_get_command(command, command == C_SFC_GET_MAX_ALL_CHANNELS)
+        if command in [C_SFC_CALC_SIGNAL_MAX, C_SFC_CALC_NORM_SIGNAL_MAX,
+                       C_SFC_GET_SIGNAL_MAX]:
+            return self._double_get_command(command,
+                                            command == C_SFC_GET_SIGNAL_MAX)
+        if command in [C_SFC_CALC_MAX_ALL_CHANNELS,
+                       C_SFC_CALC_NORM_MAX_ALL_CHANNELS,
+                       C_SFC_GET_MAX_ALL_CHANNELS]:
+            return self._double_channel_get_command(
+                command, command == C_SFC_GET_MAX_ALL_CHANNELS)
         if command in [C_SFC_FILE_TRUNCATE, C_SFC_SET_RAW_START_OFFSET]:
-            return self._sf_count_set_command(command, arg, command == C_SFC_SET_RAW_START_OFFSET)
+            return self._sf_count_set_command(
+                command, arg, command == C_SFC_SET_RAW_START_OFFSET)
         if command == C_SFC_GET_EMBED_FILE_INFO:
             return self._embed_get_command(command)
         if command == C_SFC_GET_CUE_COUNT:
@@ -1351,20 +1381,28 @@ cdef class PySndfile:
         if command == C_SFC_SET_CHANNEL_MAP_INFO:
             return self._channel_map_set_command(command, arg)
         if command == C_SFC_WAVEX_SET_AMBISONIC:
-            _check_command_retval(self.thisPtr.command(command, NULL, ambisonic_name_to_id[arg]), command, C_SF_FALSE)
+            _check_command_retval(
+                self.thisPtr.command(command, NULL, ambisonic_name_to_id[arg]),
+                command, C_SF_FALSE)
             return None
         if command == C_SFC_WAVEX_GET_AMBISONIC:
-            return ambisonic_id_to_name[_check_command_retval(self.thisPtr.command(command, NULL, 0), command, C_SF_FALSE)]
-        if command in [C_SFC_SET_VBR_ENCODING_QUALITY, C_SFC_SET_COMPRESSION_LEVEL]:
+            return ambisonic_id_to_name[
+                _check_command_retval(self.thisPtr.command(command, NULL, 0),
+                                      command, C_SF_FALSE)]
+        if command in [C_SFC_SET_VBR_ENCODING_QUALITY,
+                       C_SFC_SET_COMPRESSION_LEVEL]:
             self._double_set_command(command, arg, [0., 1.], True)
             return None
-        if command in [C_SFC_SET_OGG_PAGE_LATENCY_MS, C_SFC_SET_OGG_PAGE_LATENCY]:
+        if command in [C_SFC_SET_OGG_PAGE_LATENCY_MS,
+                       C_SFC_SET_OGG_PAGE_LATENCY]:
             self._double_set_command(command, arg, [50., 1600.], False)
             return None
         if command == C_SFC_GET_OGG_STREAM_SERIALNO:
             return self._int32_get_command(command)
         if command == C_SFC_GET_BITRATE_MODE:
-            return bitrate_mode_id_to_name[_check_command_retval(self.thisPtr.command(command, NULL, 0), command, -1)]
+            return bitrate_mode_id_to_name[
+                _check_command_retval(self.thisPtr.command(command, NULL, 0),
+                                      command, -1)]
         if command == C_SFC_SET_BITRATE_MODE:
             return self._bitrate_set_command(command, arg)
         if command == C_SFC_SET_CART_INFO:
@@ -1373,8 +1411,10 @@ cdef class PySndfile:
             return self._cart_get_command(command)
         if command == C_SFC_SET_ORIGINAL_SAMPLERATE:
             return self._int_set_command(command, arg)
-        if command in [C_SFC_SET_ADD_DITHER_ON_WRITE, C_SFC_SET_ADD_DITHER_ON_READ]:
-            _check_command_retcode(self.thisPtr.command(command, NULL, 0), command)
+        if command in [C_SFC_SET_ADD_DITHER_ON_WRITE,
+                       C_SFC_SET_ADD_DITHER_ON_READ]:
+            _check_command_retcode(self.thisPtr.command(command, NULL, 0),
+                                   command)
             return None
         # not documented but maybe implemented in 1.2.2
         if command in [C_SFC_SET_DITHER_ON_WRITE, C_SFC_SET_DITHER_ON_READ]:
@@ -1879,7 +1919,8 @@ cdef class PySndfile:
 
     def _get_current_sf_info(self):
         cdef SF_INFO info
-        retcode = self.thisPtr.command(C_SFC_GET_CURRENT_SF_INFO, &info, sizeof(info))
+        retcode = self.thisPtr.command(C_SFC_GET_CURRENT_SF_INFO, &info,
+                                       sizeof(info))
         _check_command_retcode(retcode, C_SFC_GET_CURRENT_SF_INFO)
         return SfInfoData(frames = info.frames, samplerate = info.samplerate,
                           channels = info.channels, format = info.format,
@@ -1924,7 +1965,8 @@ cdef class PySndfile:
 
     def _double_get_command(self, command, is_optional):
         cdef double tmp_double
-        cdef int ret = self.thisPtr.command(command, &tmp_double, sizeof(double))
+        cdef int ret = self.thisPtr.command(command, &tmp_double,
+                                            sizeof(double))
         if is_optional:
             if ret == C_SF_FALSE:
                 return None
@@ -1934,8 +1976,12 @@ cdef class PySndfile:
 
     def _double_channel_get_command(self, command, is_optional):
         nc = self.thisPtr.channels()
-        cdef cnp.ndarray[cnp.float64_t, ndim=1] ret = np.zeros(nc, dtype=np.float64, order='C')
-        cdef int retcode = self.thisPtr.command(command, <double*>PyArray_DATA(ret), nc * sizeof(double))
+        cdef cnp.ndarray[cnp.float64_t, ndim=1] ret = np.zeros(nc,
+                                                               dtype=np.float64,
+                                                               order='C')
+        cdef int retcode = self.thisPtr.command(command,
+                                                <double*>PyArray_DATA(ret),
+                                                nc * sizeof(double))
         if is_optional:
             if retcode == C_SF_FALSE:
                 return None
@@ -1948,7 +1994,8 @@ cdef class PySndfile:
         if tmp_double < valid_range[0] or tmp_double > valid_range[1]:
             raise RuntimeError("PySndfile::error:: value {0} not in range {1}-{2} for command {3}".format(arg, valid_range[0], valid_range[1], commands_id_to_name[command]))
 
-        cdef int ret = self.thisPtr.command(command, &tmp_double, sizeof(double))
+        cdef int ret = self.thisPtr.command(command, &tmp_double,
+                                            sizeof(double))
         if return_is_hybrid:
             _check_command_hybrid_retval(ret, command)
         else:
@@ -1980,14 +2027,16 @@ cdef class PySndfile:
 
     def _dither_get_command(self, command):
         cdef SF_DITHER_INFO tmp_info
-        retcode = self.thisPtr.command(command, &tmp_info, sizeof(SF_DITHER_INFO))
+        retcode = self.thisPtr.command(command, &tmp_info,
+                                       sizeof(SF_DITHER_INFO))
         _check_command_retcode(retcode, command)
         return SfDitherInfo(type = tmp_info.type, level = tmp_info.level,
                             name = tmp_info.name)
 
     def _embed_get_command(self, command):
         cdef SF_EMBED_FILE_INFO tmp_info
-        retcode = self.thisPtr.command(command, &tmp_info, sizeof(SF_EMBED_FILE_INFO))
+        retcode = self.thisPtr.command(command, &tmp_info,
+                                       sizeof(SF_EMBED_FILE_INFO))
         _check_command_retcode(retcode, command)
         return SfEmbedFileInfo(offset = tmp_info.offset,
                                length = tmp_info.length)
@@ -2004,13 +2053,15 @@ cdef class PySndfile:
         cdef SF_CUES* cue_ptr = NULL
         cdef int cue_size
         cdef uint32_t cue_count
-        retcode = self.thisPtr.command(C_SFC_GET_CUE_COUNT, &cue_count, sizeof(uint32_t))
+        retcode = self.thisPtr.command(C_SFC_GET_CUE_COUNT, &cue_count,
+                                       sizeof(uint32_t))
         if retcode == C_SF_FALSE:
             return []
         ret = []
         try:
             if cue_count > 100:
-                cue_size = sizeof(SF_CUES) + (cue_count - 100) * sizeof(SF_CUE_POINT)
+                cue_size = sizeof(SF_CUES) \
+                           + (cue_count - 100) * sizeof(SF_CUE_POINT)
                 cue_ptr = <SF_CUES*>malloc(cue_size)
             else:
                 cue_ptr = &tmp_cues
@@ -2018,13 +2069,14 @@ cdef class PySndfile:
             retcode = self.thisPtr.command(command, cue_ptr, cue_size)
             if retcode == C_SF_TRUE:
                 for ci in range(cue_ptr.cue_count):
-                    ret.append(SfCuePoint(indx = cue_ptr.cue_points[ci].indx,
-                                          position = cue_ptr.cue_points[ci].position,
-                                          fcc_chunk = cue_ptr.cue_points[ci].fcc_chunk,
-                                          chunk_start = cue_ptr.cue_points[ci].chunk_start,
-                                          block_start = cue_ptr.cue_points[ci].block_start,
-                                          sample_offset = cue_ptr.cue_points[ci].sample_offset,
-                                          name = cue_ptr.cue_points[ci].name))
+                    ret.append(SfCuePoint(
+                        indx = cue_ptr.cue_points[ci].indx,
+                        position = cue_ptr.cue_points[ci].position,
+                        fcc_chunk = cue_ptr.cue_points[ci].fcc_chunk,
+                        chunk_start = cue_ptr.cue_points[ci].chunk_start,
+                        block_start = cue_ptr.cue_points[ci].block_start,
+                        sample_offset = cue_ptr.cue_points[ci].sample_offset,
+                        name = cue_ptr.cue_points[ci].name))
         finally:
             if cue_size != sizeof(SF_CUES):
                 free(cue_ptr)
@@ -2037,7 +2089,8 @@ cdef class PySndfile:
         tmp_cues.cue_count = len(arg)
         try:
             if tmp_cues.cue_count > 100:
-                cue_size = sizeof(SF_CUES) + (tmp_cues.cue_count - 100) * sizeof(SF_CUE_POINT)
+                cue_size = sizeof(SF_CUES) \
+                           + (tmp_cues.cue_count - 100) * sizeof(SF_CUE_POINT)
                 cue_ptr = <SF_CUES*>malloc(cue_size)
                 cue_ptr.cue_count = tmp_cues.cue_count
             else:
@@ -2050,7 +2103,8 @@ cdef class PySndfile:
                 cue_ptr.cue_points[ci].chunk_start = arg[ci].chunk_start
                 cue_ptr.cue_points[ci].block_start = arg[ci].block_start
                 cue_ptr.cue_points[ci].sample_offset = arg[ci].sample_offset
-                _assign_string_field(cue_ptr.cue_points[ci].name, arg[ci].name, 255, command, "name")
+                _assign_string_field(cue_ptr.cue_points[ci].name, arg[ci].name,
+                                     255, command, "name")
             retcode = self.thisPtr.command(command, cue_ptr, cue_size)
             _check_command_retval(retcode, command, C_SF_FALSE)
         finally:
@@ -2060,7 +2114,8 @@ cdef class PySndfile:
 
     def _instrument_get_command(self, command):
         cdef SF_INSTRUMENT tmp_inst
-        retcode = self.thisPtr.command(command, &tmp_inst, sizeof(SF_INSTRUMENT))
+        retcode = self.thisPtr.command(command, &tmp_inst,
+                                       sizeof(SF_INSTRUMENT))
         cdef loop_t* loops = <loop_t*> tmp_inst.loops
         if retcode == C_SF_TRUE:
             ret = SfInstrument 
@@ -2074,10 +2129,9 @@ cdef class PySndfile:
             ret.loops = []
             for li in range(tmp_inst.loop_count):
                 ret.loops.append(SfInstrumentLoop(
-                                     mode = loop_id_to_name[loops[li].mode], 
-                                     start = loops[li].start, 
-                                     end = loops[li].end, 
-                                     count = loops[li].count))
+                    mode = loop_id_to_name[loops[li].mode], 
+                    start = loops[li].start, end = loops[li].end, 
+                    count = loops[li].count))
             return ret
         else:
             return None
@@ -2091,8 +2145,10 @@ cdef class PySndfile:
         tmp_inst.gain = arg.gain
         tmp_inst.basenote = _check_char_range(arg.basenote, command, "basenote")
         tmp_inst.detune = _check_char_range(arg.detune, command, "detune")
-        tmp_inst.velocity_lo = _check_char_range(arg.velocity_lo, command, "velocity_lo")
-        tmp_inst.velocity_hi = _check_char_range(arg.velocity_hi, command, "velocity_hi")
+        tmp_inst.velocity_lo = _check_char_range(arg.velocity_lo, command,
+                                                 "velocity_lo")
+        tmp_inst.velocity_hi = _check_char_range(arg.velocity_hi, command,
+                                                 "velocity_hi")
         tmp_inst.key_lo = _check_char_range(arg.key_lo, command, "key_lo")
         tmp_inst.key_hi = _check_char_range(arg.key_hi, command, "key_hi")
         for li in range(tmp_inst.loop_count):
@@ -2102,7 +2158,8 @@ cdef class PySndfile:
             loops[li].start = arg.loops[li].start
             loops[li].end = arg.loops[li].end
             loops[li].count = arg.loops[li].count
-        retcode = self.thisPtr.command(command, &tmp_inst, sizeof(SF_INSTRUMENT))
+        retcode = self.thisPtr.command(command, &tmp_inst,
+                                       sizeof(SF_INSTRUMENT))
         _check_command_retval(retcode, command, C_SF_FALSE)
         return None
         
@@ -2127,7 +2184,8 @@ cdef class PySndfile:
     def _broadcast_get_command(self, command):
         cdef SF_BROADCAST_INFO tmp_info
         cdef SF_BROADCAST_INFO* info_ptr = NULL
-        retcode = self.thisPtr.command(command, &tmp_info, sizeof(SF_BROADCAST_INFO))
+        retcode = self.thisPtr.command(command, &tmp_info,
+                                       sizeof(SF_BROADCAST_INFO))
         if retcode != C_SF_TRUE:
             return None
         ret = SfBroadcastInfo(
@@ -2210,16 +2268,17 @@ cdef class PySndfile:
                                                          command,
                                                         "loudness_value")
             info_ptr.loudness_range = _check_int16_range(arg.loudness_range,
-                                                         command, "loudness_range")
-            info_ptr.max_true_peak_level = _check_int16_range(arg.max_true_peak_level,
-                                                              command,
-                                                              "max_true_peak_level")
-            info_ptr.max_momentary_loudness = _check_int16_range(arg.max_momentary_loudness,
-                                                                 command,
-                                                                 "max_momentary_loudness")
-            info_ptr.max_shortterm_loudness = _check_int16_range(arg.max_shortterm_loudness,
-                                                                 command,
-                                                                 "max_shortterm_loudness")
+                                                         command,
+                                                         "loudness_range")
+            info_ptr.max_true_peak_level = \
+                _check_int16_range(arg.max_true_peak_level, command,
+                                   "max_true_peak_level")
+            info_ptr.max_momentary_loudness = \
+                _check_int16_range(arg.max_momentary_loudness, command,
+                                   "max_momentary_loudness")
+            info_ptr.max_shortterm_loudness = \
+                _check_int16_range(arg.max_shortterm_loudness, command,
+                                   "max_shortterm_loudness")
             memset(info_ptr.reserved, 0, 180)
             info_ptr.coding_history_size = len(tmp_str)
             for si in range(info_ptr.coding_history_size):
@@ -2271,7 +2330,9 @@ cdef class PySndfile:
 
     def _bitrate_set_command(self, command, arg):
         cdef int tmp_int = bitrate_mode_name_to_id[arg]
-        _check_command_retval(self.thisPtr.command(command, &tmp_int, sizeof(int)), command, C_SF_FALSE)
+        _check_command_retval(self.thisPtr.command(command, &tmp_int,
+                                                   sizeof(int)),
+                              command, C_SF_FALSE)
         return None
 
     def _cart_set_command(self, command, arg):
@@ -2314,9 +2375,9 @@ cdef class PySndfile:
             _assign_char_field(tmp_info.post_timers[pti].usage,
                                arg.post_timers[pti].usage, 4, command,
                                "post_timers.usage")
-            tmp_info.post_timers[pti].value = _check_int32_range(arg.post_timers[pti].value,
-                                                                 command,
-                                                                 "post_timers.value")
+            tmp_info.post_timers[pti].value = \
+                _check_int32_range(arg.post_timers[pti].value, command,
+                                   "post_timers.value")
         memset(tmp_info.reserved, 0, 276)
         _assign_char_field(tmp_info.url, arg.url, 1024, command, "url")
         tmp_info.tag_text_size = _assign_char_field(tmp_info.tag_text,
@@ -2346,15 +2407,17 @@ cdef class PySndfile:
             ret.end_time = _read_from_char_field(tmp_info.end_time, 8)
             ret.producer_app_id = _read_from_char_field(tmp_info.producer_app_id,
                                                         64)
-            ret.producer_app_version = _read_from_char_field(tmp_info.producer_app_version,
-                                                             64)
+            ret.producer_app_version = \
+                _read_from_char_field(tmp_info.producer_app_version, 64)
             ret.user_def = _read_from_char_field(tmp_info.user_def, 64)
             ret.level_reference = tmp_info.level_reference
             ret.post_timers = []
             for pti in range(8):
                 if tmp_info.post_timers[pti].usage[0]:
-                    ret.post_timers.append(SfCartTimer(usage = _read_from_char_field(tmp_info.post_timers[pti].usage, 4),
-                                                       value = tmp_info.post_timers[pti].value))
+                    ret.post_timers.append(SfCartTimer(
+                        usage = _read_from_char_field(
+                            tmp_info.post_timers[pti].usage, 4),
+                        value = tmp_info.post_timers[pti].value))
             ret.url = _read_from_char_field(tmp_info.url, 1024)
             text_size = tmp_info.tag_text_size
             if text_size > 256:
@@ -2366,7 +2429,9 @@ cdef class PySndfile:
 
     def _int_set_command(self, command, arg):
         cdef int tmp_int = arg
-        _check_command_hybrid_retval(self.thisPtr.command(command, &tmp_int, sizeof(int)), command)
+        _check_command_hybrid_retval(self.thisPtr.command(command, &tmp_int,
+                                                          sizeof(int)),
+                                     command)
         return None
 
 cdef _construct_format(major, encoding) :
