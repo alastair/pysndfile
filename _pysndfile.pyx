@@ -158,6 +158,10 @@ cdef extern from "pysndfile.hh":
         int root_key
         int future[6]
 
+    # this matches the definition starting with libsndfile 1.0.29, but the
+    # members that were not defined in 1.0.28 can't be used, while the old
+    # definition would have a wrong size for the reserved member when using a
+    # more recent version
     ctypedef struct SF_BROADCAST_INFO:
         char description[256]
         char originator[32]
@@ -168,11 +172,11 @@ cdef extern from "pysndfile.hh":
         uint32_t time_reference_high
         short version
         char umid[64]
-        int16_t loudness_value
-        int16_t loudness_range
-        int16_t max_true_peak_level
-        int16_t max_momentary_loudness
-        int16_t max_shortterm_loudness
+        int16_t loudness_value         # added in 1.0.29, offset 414
+        int16_t loudness_range         # added in 1.0.29, offset 416
+        int16_t max_true_peak_level    # added in 1.0.29, offset 418
+        int16_t max_momentary_loudness # added in 1.0.29, offset 420
+        int16_t max_shortterm_loudness # added in 1.0.29, offset 422
         char reserved[180]
         uint32_t coding_history_size
         char coding_history[256]
@@ -996,6 +1000,16 @@ cdef int _assign_char_field(char* dst, value, int max_length, command, field):
     if length < max_length:
         dst[length] = 0
     return length
+
+# some members of SF_BROADCAST_INFO were not defined in libsndfile 1.0.28
+# they latter (1.0.29) introduced in the first bytes of the reserved member
+cdef int16_t _read_new_broadcast_member(SF_BROADCAST_INFO* info,
+                                        int offset):
+    return (<int16_t*>(<char*>info + offset))[0]
+
+cdef void _write_new_broadcast_member(SF_BROADCAST_INFO* info, int offset,
+                                      int16_t value):
+    (<int16_t*>(<char*>info + offset))[0] = value
 
 def get_sndfile_version():
     """
@@ -2197,11 +2211,11 @@ cdef class PySndfile:
                 + tmp_info.time_reference_low,
             version = tmp_info.version,
             umid = tmp_info.umid[:64],
-            loudness_value = tmp_info.loudness_value,
-            loudness_range = tmp_info.loudness_range,
-            max_true_peak_level = tmp_info.max_true_peak_level,
-            max_momentary_loudness = tmp_info.max_momentary_loudness,
-            max_shortterm_loudness = tmp_info.max_shortterm_loudness,
+            loudness_value = _read_new_broadcast_member(&tmp_info, 414),
+            loudness_range = _read_new_broadcast_member(&tmp_info, 416),
+            max_true_peak_level = _read_new_broadcast_member(&tmp_info, 418),
+            max_momentary_loudness = _read_new_broadcast_member(&tmp_info, 420),
+            max_shortterm_loudness = _read_new_broadcast_member(&tmp_info, 422),
             coding_history = None)
         if tmp_info.coding_history_size < 256:
             ret.coding_history = \
@@ -2259,21 +2273,26 @@ cdef class PySndfile:
                     memset(info_ptr.umid + length, 0, 64 - length)
                 else:
                     memset(info_ptr.umid, 0, 64)
-            info_ptr.loudness_value = _check_int16_range(arg.loudness_value,
-                                                         command,
-                                                        "loudness_value")
-            info_ptr.loudness_range = _check_int16_range(arg.loudness_range,
-                                                         command,
-                                                         "loudness_range")
-            info_ptr.max_true_peak_level = \
-                _check_int16_range(arg.max_true_peak_level, command,
-                                   "max_true_peak_level")
-            info_ptr.max_momentary_loudness = \
-                _check_int16_range(arg.max_momentary_loudness, command,
-                                   "max_momentary_loudness")
-            info_ptr.max_shortterm_loudness = \
-                _check_int16_range(arg.max_shortterm_loudness, command,
-                                   "max_shortterm_loudness")
+            _write_new_broadcast_member(info_ptr, 414,
+                                        _check_int16_range(arg.loudness_value,
+                                                           command,
+                                                          "loudness_value"))
+            _write_new_broadcast_member(info_ptr, 416,
+                                        _check_int16_range(arg.loudness_range,
+                                                           command,
+                                                           "loudness_range"))
+            _write_new_broadcast_member(
+                info_ptr, 418, _check_int16_range(arg.max_true_peak_level,
+                                                  command,
+                                                  "max_true_peak_level"))
+            _write_new_broadcast_member(
+                info_ptr, 420, _check_int16_range(arg.max_momentary_loudness,
+                                                  command,
+                                                  "max_momentary_loudness"))
+            _write_new_broadcast_member(
+                info_ptr, 422, _check_int16_range(arg.max_shortterm_loudness,
+                                                  command,
+                                                  "max_shortterm_loudness"))
             memset(info_ptr.reserved, 0, 180)
             info_ptr.coding_history_size = len(tmp_str)
             for si in range(info_ptr.coding_history_size):
