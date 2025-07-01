@@ -2126,74 +2126,110 @@ cdef class PySndfile:
 
     def _broadcast_get_command(self, command):
         cdef SF_BROADCAST_INFO tmp_info
+        cdef SF_BROADCAST_INFO* info_ptr = NULL
         retcode = self.thisPtr.command(command, &tmp_info, sizeof(SF_BROADCAST_INFO))
-        if retcode == C_SF_TRUE:
-            return SfBroadcastInfo(description = _read_from_char_field(tmp_info.description, 256),
-                                   originator = _read_from_char_field(tmp_info.originator, 32),
-                                   originator_reference = _read_from_char_field(tmp_info.originator_reference, 32),
-                                   origination_date = _read_from_char_field(tmp_info.origination_date, 10),
-                                   origination_time = _read_from_char_field(tmp_info.origination_time, 8),
-                                   time_reference = (<uint64_t>pow(2.0, 32)) * tmp_info.time_reference_high + tmp_info.time_reference_low,
-                                   version = tmp_info.version,
-                                   umid = tmp_info.umid[:64],
-                                   loudness_value = tmp_info.loudness_value,
-                                   loudness_range = tmp_info.loudness_range,
-                                   max_true_peak_level = tmp_info.max_true_peak_level,
-                                   max_momentary_loudness = tmp_info.max_momentary_loudness,
-                                   max_shortterm_loudness = tmp_info.max_shortterm_loudness,
-                                   coding_history = tmp_info.coding_history[:tmp_info.coding_history_size])
-        else:
+        if retcode != C_SF_TRUE:
             return None
+        ret = SfBroadcastInfo(
+            description = _read_from_char_field(tmp_info.description, 256),
+            originator = _read_from_char_field(tmp_info.originator, 32),
+            originator_reference = 
+                _read_from_char_field(tmp_info.originator_reference, 32),
+            origination_date =
+                _read_from_char_field(tmp_info.origination_date, 10),
+            origination_time =
+                _read_from_char_field(tmp_info.origination_time, 8),
+            time_reference =
+                (<uint64_t>pow(2.0, 32)) * tmp_info.time_reference_high
+                + tmp_info.time_reference_low,
+            version = tmp_info.version,
+            umid = tmp_info.umid[:64],
+            loudness_value = tmp_info.loudness_value,
+            loudness_range = tmp_info.loudness_range,
+            max_true_peak_level = tmp_info.max_true_peak_level,
+            max_momentary_loudness = tmp_info.max_momentary_loudness,
+            max_shortterm_loudness = tmp_info.max_shortterm_loudness,
+            coding_history = None)
+        if tmp_info.coding_history_size < 256:
+            ret.coding_history = \
+                tmp_info.coding_history[:tmp_info.coding_history_size]
+        else:
+            try:
+                info_size = sizeof(SF_BROADCAST_INFO) \
+                            + (tmp_info.coding_history_size - 255)
+                info_ptr = <SF_BROADCAST_INFO*>malloc(info_size)
+                retcode = self.thisPtr.command(command, info_ptr, info_size)
+                if retcode != C_SF_TRUE \
+                    or tmp_info.coding_history_size \
+                        != info_ptr.coding_history_size:
+                    raise RuntimeError("PySndfile::error:: second call to {0} for extended coding history failed, this should not happen", command)
+                ret.coding_history = \
+                    info_ptr.coding_history[:info_ptr.coding_history_size]
+            finally:
+                free(info_ptr)
+        return ret
 
     def _broadcast_set_command(self, command, arg):
         cdef SF_BROADCAST_INFO tmp_info
-        _assign_char_field(tmp_info.description, arg.description, 256, command,
-                           "description")
-        _assign_char_field(tmp_info.originator, arg.originator, 32, command,
-                           "originator")
-        _assign_char_field(tmp_info.originator_reference,
-                           arg.originator_reference, 32, command,
-                           "originator_reference")
-        _assign_char_field(tmp_info.origination_date, arg.origination_date, 10,
-                           command, "origination_date")
-        _assign_char_field(tmp_info.origination_time, arg.origination_time, 8,
-                           command, "origination_time")
-        cdef uint64_t timeref = arg.time_reference
-        tmp_info.time_reference_low = timeref & 0xffffffff
-        tmp_info.time_reference_high = timeref >> 32
-        tmp_info.version = arg.version
+        cdef SF_BROADCAST_INFO* info_ptr = &tmp_info
+        cdef int info_size = sizeof(SF_BROADCAST_INFO)
         cdef size_t length
-        if arg.umid:
-            length = len(arg.umid)
-            if length > 64:
-                raise RuntimeError("PySndfile::error:: umid is too long ({0}) in {1}, maximum length is 64".format(length, commands_id_to_name[command]))
-            for ui in range(length):
-                tmp_info.umid[ui] = arg.umid[ui]
-            if length < 64:
-                memset(tmp_info.umid + length, 0, 64 - length)
-        else:
-            memset(tmp_info.umid, 0, 64)
-        tmp_info.loudness_value = _check_int16_range(arg.loudness_value,
-                                                     command,
-                                                    "loudness_value")
-        tmp_info.loudness_range = _check_int16_range(arg.loudness_range,
-                                                     command, "loudness_range")
-        tmp_info.max_true_peak_level = _check_int16_range(arg.max_true_peak_level,
-                                                          command,
-                                                          "max_true_peak_level")
-        tmp_info.max_momentary_loudness = _check_int16_range(arg.max_momentary_loudness,
-                                                             command,
-                                                             "max_momentary_loudness")
-        tmp_info.max_shortterm_loudness = _check_int16_range(arg.max_shortterm_loudness,
-                                                             command,
-                                                             "max_shortterm_loudness")
-        memset(tmp_info.reserved, 0, 180)
-        tmp_info.coding_history_size = _assign_char_field(tmp_info.coding_history,
-                                                          arg.coding_history,
-                                                          256, command,
-                                                          "coding_history")
-        retcode = self.thisPtr.command(command, &tmp_info, sizeof(SF_BROADCAST_INFO))
-        _check_command_retval(retcode, command, C_SF_FALSE)
+        cdef uint64_t timeref
+        tmp_str = arg.coding_history.encode("UTF-8")
+        history_size = len(tmp_str) + 1
+        try:
+            if history_size > 256:
+                info_size = sizeof(SF_BROADCAST_INFO) + (history_size - 256)
+                info_ptr = <SF_BROADCAST_INFO*>malloc(info_size)
+            _assign_char_field(info_ptr.description, arg.description, 256,
+                               command, "description")
+            _assign_char_field(info_ptr.originator, arg.originator, 32, command,
+                               "originator")
+            _assign_char_field(info_ptr.originator_reference,
+                               arg.originator_reference, 32, command,
+                               "originator_reference")
+            _assign_char_field(info_ptr.origination_date, arg.origination_date,
+                               10, command, "origination_date")
+            _assign_char_field(info_ptr.origination_time, arg.origination_time,
+                               8, command, "origination_time")
+            timeref = arg.time_reference
+            info_ptr.time_reference_low = timeref & 0xffffffff
+            info_ptr.time_reference_high = timeref >> 32
+            info_ptr.version = arg.version
+            if arg.umid:
+                length = len(arg.umid)
+                if length > 64:
+                    raise RuntimeError("PySndfile::error:: umid is too long ({0}) in {1}, maximum length is 64".format(length, commands_id_to_name[command]))
+                for ui in range(length):
+                    info_ptr.umid[ui] = arg.umid[ui]
+                if length < 64:
+                    memset(info_ptr.umid + length, 0, 64 - length)
+                else:
+                    memset(info_ptr.umid, 0, 64)
+            info_ptr.loudness_value = _check_int16_range(arg.loudness_value,
+                                                         command,
+                                                        "loudness_value")
+            info_ptr.loudness_range = _check_int16_range(arg.loudness_range,
+                                                         command, "loudness_range")
+            info_ptr.max_true_peak_level = _check_int16_range(arg.max_true_peak_level,
+                                                              command,
+                                                              "max_true_peak_level")
+            info_ptr.max_momentary_loudness = _check_int16_range(arg.max_momentary_loudness,
+                                                                 command,
+                                                                 "max_momentary_loudness")
+            info_ptr.max_shortterm_loudness = _check_int16_range(arg.max_shortterm_loudness,
+                                                                 command,
+                                                                 "max_shortterm_loudness")
+            memset(info_ptr.reserved, 0, 180)
+            info_ptr.coding_history_size = len(tmp_str)
+            for si in range(info_ptr.coding_history_size):
+                info_ptr.coding_history[si] = tmp_str[si]
+            info_ptr.coding_history[info_ptr.coding_history_size] = 0
+            retcode = self.thisPtr.command(command, info_ptr, info_size)
+            _check_command_retval(retcode, command, C_SF_FALSE)
+        finally:
+            if info_size != sizeof(SF_BROADCAST_INFO):
+                free(info_ptr)
         return None
 
     def _channel_map_get_command(self, command):
