@@ -85,7 +85,7 @@ cdef extern from "Python.h":
     void PyMem_Free(void *p)
 
 from libc.stdint cimport uint32_t, int16_t, uint64_t, int32_t, INT16_MIN, INT16_MAX, INT32_MIN, INT32_MAX
-from libc.stdlib cimport free, malloc
+from libc.stdlib cimport free, malloc, calloc
 from libc.string cimport strcpy, memchr, memset
 from libc.limits cimport CHAR_MIN, CHAR_MAX
 from libc.math cimport pow
@@ -1925,6 +1925,7 @@ cdef class PySndfile:
     def _string_out_command(self, command, null_handle):
         # string buffer, returns string size (not needed)
         cdef char buf[2048]
+        buf[0] = 0
         if null_handle:
             ret = sf_command(NULL, command, buf, sizeof(buf))
         else:
@@ -1933,6 +1934,7 @@ cdef class PySndfile:
 
     def _get_current_sf_info(self):
         cdef SF_INFO info
+        memset(&info, 0, sizeof(SF_INFO))
         retcode = self.thisPtr.command(C_SFC_GET_CURRENT_SF_INFO, &info,
                                        sizeof(info))
         _check_command_retcode(retcode, C_SFC_GET_CURRENT_SF_INFO)
@@ -1953,7 +1955,7 @@ cdef class PySndfile:
         return ret
 
     def _int_get_command(self, command, null_handle, return_is_hybrid):
-        cdef int tmp_int
+        cdef int tmp_int = 0
         cdef int ret
         if null_handle:
             ret = sf_command(NULL, command, &tmp_int, sizeof(int))
@@ -1967,18 +1969,21 @@ cdef class PySndfile:
 
     def _format_get_command(self, command, arg):
         cdef SF_FORMAT_INFO tmp_info
+        memset(&tmp_info, 0, sizeof(SF_FORMAT_INFO))
         tmp_info.format = <int> arg
         cdef int retcode
         retcode = sf_command(NULL, command, &tmp_info, sizeof(SF_FORMAT_INFO))
         _check_command_retcode(retcode, command)
-        ret = SfFormatInfo(format = tmp_info.format, name = str(tmp_info.name),
+        ret = SfFormatInfo(format = tmp_info.format, name = None,
                            extension = None)
+        if tmp_info.name != NULL:
+            ret.name = str(tmp_info.name)
         if tmp_info.extension != NULL:
             ret.extension = str(tmp_info.extension)
         return ret
 
     def _double_get_command(self, command, is_optional):
-        cdef double tmp_double
+        cdef double tmp_double = 0.
         cdef int ret = self.thisPtr.command(command, &tmp_double,
                                             sizeof(double))
         if is_optional:
@@ -2041,14 +2046,19 @@ cdef class PySndfile:
 
     def _dither_get_command(self, command):
         cdef SF_DITHER_INFO tmp_info
+        memset(&tmp_info, 0, sizeof(SF_DITHER_INFO))
         retcode = self.thisPtr.command(command, &tmp_info,
                                        sizeof(SF_DITHER_INFO))
         _check_command_retcode(retcode, command)
-        return SfDitherInfo(type = tmp_info.type, level = tmp_info.level,
-                            name = tmp_info.name)
+        ret = SfDitherInfo(type = tmp_info.type, level = tmp_info.level,
+                            name = None)
+        if tmp_info.name != NULL:
+            ret.name = tmp_info.name
+        return ret
 
     def _embed_get_command(self, command):
         cdef SF_EMBED_FILE_INFO tmp_info
+        memset(&tmp_info, 0, sizeof(SF_EMBED_FILE_INFO))
         retcode = self.thisPtr.command(command, &tmp_info,
                                        sizeof(SF_EMBED_FILE_INFO))
         _check_command_retcode(retcode, command)
@@ -2056,7 +2066,7 @@ cdef class PySndfile:
                                length = tmp_info.length)
 
     def _uint32_get_command(self, command):
-        cdef uint32_t ret
+        cdef uint32_t ret = 0
         retcode = self.thisPtr.command(command, &ret, sizeof(uint32_t))
         if retcode == C_SF_FALSE:
             ret = 0
@@ -2076,8 +2086,9 @@ cdef class PySndfile:
             if cue_count > 100:
                 cue_size = sizeof(SF_CUES) \
                            + (cue_count - 100) * sizeof(SF_CUE_POINT)
-                cue_ptr = <SF_CUES*>malloc(cue_size)
+                cue_ptr = <SF_CUES*>calloc(1, cue_size)
             else:
+                memset(&tmp_cues, 0, sizeof(SF_CUES))
                 cue_ptr = &tmp_cues
                 cue_size = sizeof(SF_CUES)
             retcode = self.thisPtr.command(command, cue_ptr, cue_size)
@@ -2128,6 +2139,7 @@ cdef class PySndfile:
 
     def _instrument_get_command(self, command):
         cdef SF_INSTRUMENT tmp_inst
+        memset(&tmp_inst, 0, sizeof(SF_INSTRUMENT))
         retcode = self.thisPtr.command(command, &tmp_inst,
                                        sizeof(SF_INSTRUMENT))
         cdef loop_t* loops = <loop_t*> tmp_inst.loops
@@ -2177,6 +2189,7 @@ cdef class PySndfile:
         
     def _loop_get_command(self, command):
         cdef SF_LOOP_INFO tmp_loop
+        memset(&tmp_loop, 0, sizeof(SF_LOOP_INFO))
         retcode = self.thisPtr.command(command, &tmp_loop, sizeof(SF_LOOP_INFO))
         if retcode == C_SF_TRUE:
             ret = SfLoopInfo(time_sig_num = tmp_loop.time_sig_num,
@@ -2193,6 +2206,7 @@ cdef class PySndfile:
     def _broadcast_get_command(self, command):
         cdef SF_BROADCAST_INFO tmp_info
         cdef SF_BROADCAST_INFO* info_ptr = NULL
+        memset(&tmp_info, 0, sizeof(SF_BROADCAST_INFO))
         retcode = self.thisPtr.command(command, &tmp_info,
                                        sizeof(SF_BROADCAST_INFO))
         if retcode != C_SF_TRUE:
@@ -2224,7 +2238,7 @@ cdef class PySndfile:
             try:
                 info_size = sizeof(SF_BROADCAST_INFO) \
                             + (tmp_info.coding_history_size - 255)
-                info_ptr = <SF_BROADCAST_INFO*>malloc(info_size)
+                info_ptr = <SF_BROADCAST_INFO*>calloc(1, info_size)
                 retcode = self.thisPtr.command(command, info_ptr, info_size)
                 if retcode != C_SF_TRUE \
                     or tmp_info.coding_history_size \
@@ -2308,7 +2322,7 @@ cdef class PySndfile:
     def _channel_map_get_command(self, command):
         cdef size_t nc = self.thisPtr.channels()
         cdef size_t datasize = nc * sizeof(int)
-        cdef int* tmp_map = <int*>malloc(datasize)
+        cdef int* tmp_map = <int*>calloc(1, datasize)
         try:
             retcode = self.thisPtr.command(command, tmp_map, datasize)
             if retcode == C_SF_TRUE:
@@ -2337,7 +2351,7 @@ cdef class PySndfile:
         return None
 
     def _int32_get_command(self, command):
-        cdef int32_t tmp_int
+        cdef int32_t tmp_int = 0
         cdef int ret = self.thisPtr.command(command, &tmp_int, sizeof(int32_t))
         _check_command_retval(ret, command, C_SF_FALSE)
         return tmp_int
@@ -2421,6 +2435,7 @@ cdef class PySndfile:
     def _cart_get_command(self, command):
         cdef SF_CART_INFO tmp_info
         cdef SF_CART_INFO* info_ptr = NULL
+        memset(&tmp_info, 0, sizeof(SF_CART_INFO))
         retcode = self.thisPtr.command(command, &tmp_info, sizeof(SF_CART_INFO))
         if retcode != C_SF_TRUE:
             return None
@@ -2456,7 +2471,7 @@ cdef class PySndfile:
             try:
                 info_size = sizeof(SF_CART_INFO) \
                             + (tmp_info.tag_text_size - 255)
-                info_ptr = <SF_CART_INFO*>malloc(info_size)
+                info_ptr = <SF_CART_INFO*>calloc(1, info_size)
                 retcode = self.thisPtr.command(command, info_ptr, info_size)
                 if retcode != C_SF_TRUE \
                     or tmp_info.tag_text_size != info_ptr.tag_text_size:
