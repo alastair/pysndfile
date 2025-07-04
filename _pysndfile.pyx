@@ -30,6 +30,7 @@ import numpy as np
 import warnings
 import os
 from dataclasses import dataclass
+from typing import List
 
 cimport numpy as cnp
 from libcpp.string cimport string
@@ -878,7 +879,7 @@ class SfInstrument:
     velocity_hi: int
     key_lo: int
     key_hi: int
-    loops: list[SfInstrumentLoop]
+    loops: List[SfInstrumentLoop]
 
 @dataclass
 class SfLoopInfo:
@@ -888,7 +889,7 @@ class SfLoopInfo:
     num_beats: int
     bpm: float
     root_key: int
-    future: list[int]
+    future: List[int]
 
 @dataclass
 class SfBroadcastInfo:
@@ -930,7 +931,7 @@ class SfCartInfo:
     producer_app_version: str
     user_def: str
     level_reference: int
-    post_timers: list[SfCartTimer]
+    post_timers: List[SfCartTimer]
     url: str
     tag_text: str
 
