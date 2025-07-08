@@ -1931,7 +1931,7 @@ cdef class PySndfile:
             ret = sf_command(NULL, command, buf, sizeof(buf))
         else:
             ret = self.thisPtr.command(command, buf, sizeof(buf))
-        return str(buf)
+        return buf.decode("UTF-8")
 
     def _get_current_sf_info(self):
         cdef SF_INFO info
@@ -1978,9 +1978,9 @@ cdef class PySndfile:
         ret = SfFormatInfo(format = tmp_info.format, name = None,
                            extension = None)
         if tmp_info.name != NULL:
-            ret.name = str(tmp_info.name)
+            ret.name = bytes(tmp_info.name).decode("UTF-8")
         if tmp_info.extension != NULL:
-            ret.extension = str(tmp_info.extension)
+            ret.extension = bytes(tmp_info.extension).decode("UTF-8")
         return ret
 
     def _double_get_command(self, command, is_optional):
@@ -2102,7 +2102,7 @@ cdef class PySndfile:
                         chunk_start = cue_ptr.cue_points[ci].chunk_start,
                         block_start = cue_ptr.cue_points[ci].block_start,
                         sample_offset = cue_ptr.cue_points[ci].sample_offset,
-                        name = cue_ptr.cue_points[ci].name))
+                        name = cue_ptr.cue_points[ci].name.decode("UTF-8")))
         finally:
             if cue_size != sizeof(SF_CUES):
                 free(cue_ptr)
@@ -2234,7 +2234,8 @@ cdef class PySndfile:
             coding_history = None)
         if tmp_info.coding_history_size < 256:
             ret.coding_history = \
-                tmp_info.coding_history[:tmp_info.coding_history_size]
+                tmp_info.coding_history[:tmp_info.coding_history_size] \
+                    .decode("UTF-8")
         else:
             try:
                 info_size = sizeof(SF_BROADCAST_INFO) \
@@ -2246,7 +2247,8 @@ cdef class PySndfile:
                         != info_ptr.coding_history_size:
                     raise RuntimeError("PySndfile::error:: second call to {0} for extended coding history failed, this should not happen", command)
                 ret.coding_history = \
-                    info_ptr.coding_history[:info_ptr.coding_history_size]
+                    info_ptr.coding_history[:info_ptr.coding_history_size] \
+                        .decode("UTF-8")
             finally:
                 free(info_ptr)
         return ret
@@ -2467,7 +2469,8 @@ cdef class PySndfile:
                         tmp_info.post_timers[pti].usage, 4),
                     value = tmp_info.post_timers[pti].value))
         if tmp_info.tag_text_size < 256:
-            ret.tag_text = tmp_info.tag_text[:tmp_info.tag_text_size]
+            ret.tag_text = \
+                tmp_info.tag_text[:tmp_info.tag_text_size].decode("UTF-8")
         else:
             try:
                 info_size = sizeof(SF_CART_INFO) \
