@@ -2054,7 +2054,7 @@ cdef class PySndfile:
         ret = SfDitherInfo(type = tmp_info.type, level = tmp_info.level,
                             name = None)
         if tmp_info.name != NULL:
-            ret.name = tmp_info.name
+            ret.name = bytes(tmp_info.name).decode("UTF-8")
         return ret
 
     def _embed_get_command(self, command):
@@ -2195,7 +2195,7 @@ cdef class PySndfile:
         if retcode == C_SF_TRUE:
             ret = SfLoopInfo(time_sig_num = tmp_loop.time_sig_num,
                              time_sig_den = tmp_loop.time_sig_den,
-                             loop_ùode = loop_id_to_name[tmp_loop.loop_mode],
+                             loop_mode = loop_id_to_name[tmp_loop.loop_mode],
                              num_beats = tmp_loop.num_beats, bpm = tmp_loop.bpm,
                              root_key = tmp_loop.root_key, future = [])
             for fi in range(6):
