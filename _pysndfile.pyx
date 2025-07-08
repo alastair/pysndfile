@@ -1406,7 +1406,12 @@ cdef class PySndfile:
                                       command, C_SF_FALSE)]
         if command in [C_SFC_SET_VBR_ENCODING_QUALITY,
                        C_SFC_SET_COMPRESSION_LEVEL]:
-            self._double_set_command(command, arg, [0., 1.], True)
+            # the ranges are documented as 0.-1., but that is not the case
+            if command == C_SFC_SET_VBR_ENCODING_QUALITY:
+                arg_range = [0.0001, 1.]
+            else:
+                arg_range = [0., 0.9999]
+            self._double_set_command(command, arg, arg_range, True)
             return None
         if command in [C_SFC_SET_OGG_PAGE_LATENCY_MS,
                        C_SFC_SET_OGG_PAGE_LATENCY]:
@@ -2477,7 +2482,8 @@ cdef class PySndfile:
                 if retcode != C_SF_TRUE \
                     or tmp_info.tag_text_size != info_ptr.tag_text_size:
                     raise RuntimeError("PySndfile::error:: second call to {0} for extended tag text failed, this should not happen", command)
-                ret.tag_text = info_ptr.tag_text[:info_ptr.tag_text_size]
+                ret.tag_text = \
+                    info_ptr.tag_text[:info_ptr.tag_text_size].decode("UTF-8")
             finally:
                 free(info_ptr)
         return ret
