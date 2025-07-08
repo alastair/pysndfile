@@ -16,14 +16,14 @@ print("libsndfile version:",get_sndfile_version())
 
 majors = get_sndfile_formats()
 
-def test_compressed(input_file, format, encoding, lossy):
+def test_compressed(input_file, format, encoding, level, lossy):
     if format in majors:
         if encoding in get_sndfile_encodings(format):
             failed = False
             ss, sr, enc = pysndfile.sndio.read(os.path.join(mydir,input_file), force_2d=True)
             print('test writing {0}/{1}'.format(format, encoding))
             output_file = PySndfile(os.path.join(mydir,'test.{0}_{1}'.format(format, encoding)), "w", construct_format(format, encoding), ss.shape[1], sr)
-            output_file.set_compression_level(0.9999)
+            output_file.set_compression_level(level)
             output_file.write_frames(ss)
             output_file.close()
             ss_out, sr_out, enc_out = pysndfile.sndio.read(os.path.join(mydir,'test.{0}_{1}'.format(format, encoding)), force_2d=True)
@@ -45,7 +45,7 @@ def test_compressed(input_file, format, encoding, lossy):
                 print("errors encountered for {0}/{1}".format(format, encoding))
                 sys.exit(1)
             print('test sndio.write {0}/{1}'.format(format, encoding))
-            pysndfile.sndio.write(os.path.join(mydir,'testsndio.{0}_{1}'.format(format, encoding)), ss, rate=sr, format=format, enc=encoding, commands=pysndfile.sndio.Commands(SFC_SET_COMPRESSION_LEVEL=0.9999))
+            pysndfile.sndio.write(os.path.join(mydir,'testsndio.{0}_{1}'.format(format, encoding)), ss, rate=sr, format=format, enc=encoding, commands=pysndfile.sndio.Commands(SFC_SET_COMPRESSION_LEVEL=level))
             ss_out2, sr_out2, enc_out2 = pysndfile.sndio.read(os.path.join(mydir,'testsndio.{0}_{1}'.format(format, encoding)), force_2d=True)
             if sr != sr_out2:
                 print('error::{0}/{1} writing sample rate {2} read {3}'.format(format, encoding, sr, sr_out2))
@@ -143,14 +143,15 @@ if np.any(ss != np.concatenate((wwstart, wwend), axis=0)):
     print("error reading file segments with class")
 
 # check writing flac
-test_compressed('test.wav', 'flac', 'pcm16', False)
+test_compressed('test.wav', 'flac', 'pcm16', 1., False)
 
-test_compressed('test.wav', 'ogg', 'vorbis', True)
+test_compressed('test.wav', 'ogg', 'vorbis', 1., True)
 
 # opus does not support 41000
-test_compressed('test48000.wav', 'ogg', 'opus', True)
+test_compressed('test48000.wav', 'ogg', 'opus', 1., True)
 
-test_compressed('test.wav', 'mpeg', 'mp3', True)
+# lame does not accept 1 for compression level (or 0 for VBR)
+test_compressed('test.wav', 'mpeg', 'mp3', 0.9999, True)
 
 cart=SfCartInfo(version='0101', title='Cart Chunk: the traffic data file format for the Radio Industry', artist='Jay Rose, dplay.com', cut_id='DEMO-0101', client_id='CartChunk.org', category='DEMO', classification='Demo and sample files', out_cue='the Radio Industry', start_date='1900/01/01', start_time='Cart Chu', end_date='2099/12/31', end_time='23:59:59', producer_app_id='AUDICY', producer_app_version='3.10/623', user_def="Demo ID showing basic 'cart' chunk attributes", level_reference=32768, post_timers=[SfCartTimer(usage='MRK ', value=112000), SfCartTimer(usage='SEC1', value=152533), SfCartTimer(usage='EOD ', value=201024)], url='http://www.cartchunk.org', tag_text="The radio traffic data, or 'cart' format utilizes a widely\r\nused standard audio file format (wave and broadcast wave file).\r\nIt incorporates the common broadcast-specific cart labeling\r\ninformation into a specialized chunk within the file itself.\r\nAs a result, the burden of linking multiple systems is reduced\r\nto producer applications writing a single file, and the consumer\r\napplications reading it. The destination application can extract\r\ninformation and insert it into the native database application\r\nas needed.\r\n")
 pysndfile.sndio.write(os.path.join(mydir, 'testdict.wav'), ss, format="wav", enc="float32", rate=sr, commands=pysndfile.sndio.Commands(SFC_SET_ADD_PEAK_CHUNK=True, SFC_SET_CART_INFO=cart))
