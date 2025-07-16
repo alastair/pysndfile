@@ -115,6 +115,23 @@ bff=b.read_frames()
 with PySndfile(os.path.join(mydir,'test_2cC.wav')) as b:
     bfc=b.read_frames()
 
+
+errs = []
+if "flac" in majors:
+    print("test flac clipping, warnings about clipping are expected!")
+    zz=np.zeros(100)
+    zz[50] = 1.1
+    zz[70] = -1.1
+    for enc in ["pcms8", "pcm16", "pcm24"]: 
+        pysndfile.sndio.write("flac_clip"+enc+".flac", zz, rate=16000, format="flac", enc=enc)
+        rr,_,_ = pysndfile.sndio.read("flac_clip"+enc+".flac")
+        if np.max(rr) > 1:
+            errs.append("err:pos enc {} {}".format(enc, np.fmax(rr)))
+        if np.min(rr) < -1:
+            errs.append("err:neg enc {} {}".format(enc, np.fmin(rr)))
+else:
+    print('your libsndfile version does not support flac format, skip clipping test')
+
 read_error= False
 write_error =False
 if np.any (ff2 != bff):
@@ -146,6 +163,17 @@ wwend = ww.read_frames(force_2d=True)
 if np.any(ss != np.concatenate((wwstart, wwend), axis=0)):
     read_error = True
     print("error reading file segments with class")
+
+print("test floating point wav with zero length")
+pysndfile.sndio.write("zerolen.wav", format="wav", data=np.zeros(0,), rate=16000)
+rr,_,_=pysndfile.sndio.read("zerolen.wav")
+
+if errs or write_error or read_error or rr.size != 0:
+    if errs:
+        print("flac write/read errors: {}".format(errs))
+    if rr.size != 0:
+        print("err: zero length file read size isn't 0, {} instead".format(rr.size))
+    sys.exit(1)
 
 # check writing flac
 test_compressed('test.wav', 'flac', 'pcm16', 1., False)
