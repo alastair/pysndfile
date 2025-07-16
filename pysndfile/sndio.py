@@ -1,12 +1,13 @@
 """
 sndio is a simple interface for reading and writing arbitrary sound files.
-The module contains 3 functions.
+The module contains 5 functions.
 
 |  **functions:**
 |     :meth:`pysndfile.sndio.get_info`:: retrieve information from a sound file.
 |     :meth:`pysndfile.sndio.get_markers`:: retrieve markers from aiff/ or wav files.
 |     :meth:`pysndfile.sndio.read`:: read data and meta data from sound file.
 |     :meth:`pysndfile.sndio.write`:: create a sound file from a given numpy array.
+|     :meth:`pysndfile.sndio.get_info_command`:: retrieve information about a sound file, using the libsndfile sf_command function
 """
 
 #
