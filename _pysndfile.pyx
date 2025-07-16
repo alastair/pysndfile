@@ -24,7 +24,6 @@
 
 # cython: embedsignature=True
 # cython: language_level=2
-# distutils: language = c++
 
 import numpy as np
 import warnings
@@ -775,7 +774,23 @@ _loop_to_id_tuple = (
     )
 
 loop_name_to_id = dict(_loop_to_id_tuple)
+"""dict: mapping of instrument loop names to libsndfile's loop mode ids.
+
+   these names are used in the :py:attr:`SfInstrument.mode` attrbute of the
+   :py:attr:`SfInstrument.loop` list in the :py:class:`SfInstrument` object
+   passed to the SFC_SET_INSTRUMENT command or returned by the
+   SFC_GET_INSTRUMENT, and in the :py:attr:`SfLoopInfo.loop_mode` attribute
+   returned by the SFC_GET_LOOP_INFO command
+   command
+"""
 loop_id_to_name = dict([(id, name) for name, id in _loop_to_id_tuple])
+"""dict: mapping of libsndfile's instsrument loop mode ids to loop mode names.
+
+   these names are used in the :py:attr:`SfInstrument.mode` attrbute of the
+   :py:attr:`SfInstrument.loop` in the :py:class:`SfInstrument` object passed
+   to the SFC_SET_INSTRUMENT command or returned by the SFC_GET_INSTRUMENT
+   command
+"""
 
 _channel_map_to_id_tuple = (
     ("SF_CHANNEL_MAP_INVALID", C_SF_CHANNEL_MAP_INVALID),
@@ -808,7 +823,17 @@ _channel_map_to_id_tuple = (
     )
 
 channel_map_name_to_id = dict(_channel_map_to_id_tuple)
+"""dict: mapping of channel map names to libsndfile's channel map values.
+
+   these names are passed to the SFC_SET_CHANNEL_MAP_INFO command and returned
+   by the SFC_GET_CHANNEL_MAP_INFO command
+"""
 channel_map_id_to_name = dict([(id, name) for name, id in _channel_map_to_id_tuple])
+"""dict: mapping of libsndfile's channel map values to channel map names.
+
+   these names are passed to the SFC_SET_CHANNEL_MAP_INFO command and returned
+   by the SFC_GET_CHANNEL_MAP_INFO command
+"""
 
 _ambisonic_to_id_tuple = (
     ("SF_AMBISONIC_NONE", C_SF_AMBISONIC_NONE),
@@ -816,7 +841,17 @@ _ambisonic_to_id_tuple = (
     )
 
 ambisonic_name_to_id = dict(_ambisonic_to_id_tuple)
+"""dict: mapping of ambisonic format names to libsndfile's ambisonic format ids.
+
+   these names are passed to the SFC_WAVEX_SET_AMBISONIC command and returned
+   by the SFC_WAVEX_GET_AMBISONIC command
+"""
 ambisonic_id_to_name = dict([(id, name) for name, id in _ambisonic_to_id_tuple])
+"""dict: mapping of libsndfile's ambisonic format ids to ambisonic format names.
+
+   these names are passed to the SFC_WAVEX_SET_AMBISONIC command and returned
+   by the SFC_WAVEX_GET_AMBISONIC command
+"""
 
 _bitrate_mode_to_id_tuple = (
     ("SF_BITRATE_MODE_CONSTANT", C_SF_BITRATE_MODE_CONSTANT),
@@ -825,10 +860,22 @@ _bitrate_mode_to_id_tuple = (
     )
 
 bitrate_mode_name_to_id = dict(_bitrate_mode_to_id_tuple)
+"""dict: mapping of bitrate mode names to libsndfile's bitrate mode ids.
+
+   these names are passed to the SFC_SET_BITRATE_MODE command and returned by
+   the SFC_GET_BITRATE_MODE command
+"""
 bitrate_mode_id_to_name = dict([(id, name) for name, id in _bitrate_mode_to_id_tuple])
+"""dict: mapping of libsndfile's bitrate mode ids to bitrate mode names.
+"""
 
 @dataclass
-class SfInfoData:
+class SfInfo:
+    """Description of the current file's format.
+
+    Returned by the SFC_GET_CURRENT_SF_INFO command (see the libsndfile
+    documentation for sf_open and the SF_INFO structure for more information)
+    """
     frames: int
     samplerate: int
     channels: int
@@ -838,23 +885,49 @@ class SfInfoData:
 
 @dataclass
 class SfFormatInfo:
+    """Information about supported file formats.
+
+    Returned by the SFC_GET_SIMPLE_FORMAT, SFC_GET_FORMAT_MAJOR,
+    SFC_GET_FORMAT_SUBTYPE and SFC_GET_FORMAT_INFO commands (see the
+    libsndfile documentation for these commands and the SF_FORMAT_INFO struct
+    for more information)
+    """
     format: int
     name: str
     extension: str
 
 @dataclass
 class SfDitherInfo:
+    """Dither information.
+
+    Passed to the SFC_SET_DITHER_ON_WRITE and SFC_SET_DITHER_ON_READ commands
+    and returned by the SFC_GET_DITHER_INFO (see the libsndfile documentation
+    for these commands and the SF_DITHER_INFO struct for more
+    information)
+    """
     type: int
     level: float
     name: str
 
 @dataclass
 class SfEmbedFileInfo:
+    """Information about an embedded file.
+
+    Returned by the SFC_GET_EMBED_FILE_INFO command (see the libsndfile
+    documentation for this command and the SF_EMBED_FILE_INFO struct for more
+    information)
+    """
     offset: int
     length: int
 
 @dataclass
 class SfCuePoint:
+    """Cue marker information.
+
+    A list of these is passed to the SFC_SET_CUE command and returned by the
+    SFC_SET_CUE command (see the libsndfile documentation for these commands
+    and the SF_CUE_POINT struct for more information)
+    """
     indx: int
     position: int
     fcc_chunk: int
@@ -865,6 +938,14 @@ class SfCuePoint:
 
 @dataclass
 class SfInstrumentLoop:
+    """Information about a loop of an instrument.
+
+    The :py:attr:`mode` value is one of the keys in :py:data:`loop_name_to_id`.
+    A list of these is in :py:attr:`SfInstrument.loops` attribute (see the
+    libsndfile documentation for the SFC_GET_INSTRUMENT and SFC_SET_INSTRUMENT
+    commands and the anonymous nested struct in the SF_INSTRUMENT struct for
+    more information)
+    """
     mode: str
     start: int
     end: int
@@ -872,6 +953,12 @@ class SfInstrumentLoop:
 
 @dataclass
 class SfInstrument:
+    """Instrument information.
+
+    Passed to the SFC_SET_INSTRUMENT command and returned by the
+    SFC_GET_INSTRUMENT command (see the libsndfile documentation for these
+    commands and the SF_INSTRUMENT struct for more information)
+    """
     gain: int
     basenote: int
     detune: int
@@ -883,6 +970,13 @@ class SfInstrument:
 
 @dataclass
 class SfLoopInfo:
+    """Loop information.
+
+    The :py:attr:`loop_mode` value is one of the keys in
+    :py:data:`loop_name_to_id`.
+    Returned by the SFC_GET_LOOP_INFO command (see the libsndfile documentation
+    for this command and the SF_LOOP_INFO struct for more information)
+    """
     time_sig_num: int
     time_seg_den: int
     loop_mode: str
@@ -893,6 +987,12 @@ class SfLoopInfo:
 
 @dataclass
 class SfBroadcastInfo:
+    """Broadcast (EBU) information.
+
+    Passed to the SFC_SET_BROADCAST_INFO command and returned by the
+    SFC_GET_BROADCAST_INFO command (see the libsndfile documentation for these
+    commands and the SF_BROADCAST_INFO struct for more information)
+    """
     description: str
     originator: str
     originator_reference: str
@@ -910,11 +1010,21 @@ class SfBroadcastInfo:
 
 @dataclass
 class SfCartTimer:
+    """Timer information in a :py:SfCartInfo.
+
+    A list of these is in the :py:attr:`SfCartInfo.post_timers` attribute
+    """
     usage: str
     value: int
 
 @dataclass
 class SfCartInfo:
+    """Traffic data information (Cart chunk, see http://www.cartchunk.org/).
+
+    Passed to the SFC_SET_CART_INFO command and returned by the
+    SFC_GET_CART_INFO command (see the libsndfile documentation for this command
+    and the SF_CART_INFO struct for more information)
+    """
     version: str
     title: str
     artist: str
@@ -936,39 +1046,131 @@ class SfCartInfo:
     tag_text: str
 
 def _raise_command_retcode_error(ret, command):
+    """Format and raise a :py:class:`RuntimeError` from a retcode.
+
+    :param ret: retcode returned by sf_command
+    :type ret: int
+    :param command: the id of the command
+    :type command: int
+    :return: not applicable
+    :raises RuntimeError: always
+    """
     raise RuntimeError("PySndfile::error:: command {0} failed with error {1}".format(commands_id_to_name[command], sf_error_number(ret)))
 
 def _check_command_retcode(ret, command):
+    """Checks a retcode.
+
+    :param ret: retcode returned by sf_command
+    :type ret: int
+    :param command: the id of the command
+    :type command: int
+    :return: None
+    :rtype: None
+    :raises RuntimeError: if ret indicates failure
+    """
     if ret != C_SF_ERR_NO_ERROR:
         _raise_command_retcode_error(ret, command)
 
 def _check_command_retval(ret, command, failure):
+    """Checks a return value against a failure code.
+
+    :param ret: return value sf_command
+    :type ret: int
+    :param command: the id of the command
+    :type command: int
+    :param failure: value that indicates failure
+    :type failure: int
+    :return: ret
+    :rtype: int
+    :raises RuntimeError: if ret is equal to failure
+    """
     if ret == failure:
         raise RuntimeError("PySndfile::error:: command {0} failed".format(commands_id_to_name[command]))
     return ret
 
 # special case for some commands that can return a mix of boolean and codes
 def _check_command_hybrid_retval(ret, command):
+    """Checks return value as both a boolean and retcode.
+
+    :param ret: return value of sf_command
+    :type ret: int
+    :param command: the id of the command
+    :type command: int
+    :return: None
+    :rtype: None
+    :raises RuntimeError: if ret is false or not true and indicates failure
+    """
     _check_command_retval(ret, command, C_SF_FALSE)
     if ret != C_SF_TRUE:
         _raise_command_retcode_error(ret, command)
 
 def _check_char_range(value, command, field):
+    """Checks that a python value fits in a C char variable.
+
+    :param value: python value
+    :type value: int
+    :param command: the id of the command
+    :type command: int
+    :param field: the name of the python attribute
+    :type field: str
+    :return: value
+    :rtype: int
+    :raises RuntimeError: if value is outside the representable range of char
+    """
     if value < CHAR_MIN or value > CHAR_MAX:
         raise RuntimeError("PySndfile::error:: command {0} argument {1} value {2} is out of range".format(commands_id_to_name[command], field, value))
     return value
 
 def _check_int16_range(value, command, field):
+    """Checks that a python value fits in a C int16_t variable.
+
+    :param value: python value
+    :type value: int
+    :param command: the id of the command
+    :type command: int
+    :param field: the name of the python attribute
+    :type field: str
+    :return: value
+    :rtype: int
+    :raises RuntimeError: if value is outside the representable range of int16_t
+    """
     if value < INT16_MIN or value > INT16_MAX:
         raise RuntimeError("PySndfile::error:: command {0} argument {1} value {2} is out of range {3}-{4}".format(commands_id_to_name[command], field, value, INT16_MIN, INT16_MAX))
     return value
 
 def _check_int32_range(value, command, field):
+    """Checks that a python value fits in a C int32_t variable.
+
+    :param value: python value
+    :type value: int
+    :param command: the id of the command
+    :type command: int
+    :param field: the name of the python attribute
+    :type field: str
+    :return: value
+    :rtype: int
+    :raises RuntimeError: if value is outside the representable range of int32_t
+    """
     if value < INT32_MIN or value > INT32_MAX:
         raise RuntimeError("PySndfile::error:: command {0} argument {1} value {2} is out of range {3}-{4}".format(commands_id_to_name[command], field, value, INT32_MIN, INT32_MAX))
     return value
 
 cdef int _assign_string_field(char* dst, value, int max_length, command, field):
+    """Copy a string to a null-terminated C char array
+
+    :param dst: destination character array
+    :type dst: char*
+    :param value: string to be copied
+    :type value: str or convertible to str
+    :param max_length: maximum length of destination string (not including 0)
+    :type max_length: int
+    :param command: the id of the command
+    :type command: int
+    :param field: name of the struct member (for error message)
+    :type field: str
+    :return: the length of the string
+    :raises RuntimeError: if the value length exceeds max_length
+    """
     cdef int length
     if value:
         tmp_str = value.encode("UTF-8")
@@ -982,12 +1184,35 @@ cdef int _assign_string_field(char* dst, value, int max_length, command, field):
         return 0
 
 cdef str _read_from_char_field(char* src, int size):
+    """Create a string from a character array (assumes UTF-8 encoding)
+
+    :param src: C characted array (terminating 0 is not required)
+    :type src: char*
+    :param size: size of source character array
+    :type size: int
+    :returns: unicode string (the src character array is interpreted as UTF-8)
+    :rtype: str
+    """
     cdef char* zero = <char*>memchr(src, 0, size)
     if zero:
         size = zero - src
     return src[:size].decode("UTF-8")
 
 cdef int _assign_char_field(char* dst, value, int max_length, command, field):
+    """Copy a string to a character array (only 0-terminated if it fits)
+
+    :param dst: destination C character array
+    :type dst: char*
+    :param value: string to be copied
+    :type value: str
+    :param max_length: size of dst
+    :type max_length: int
+    :param command: the id of the command
+    :type command: int
+    :param field: name of the struct member (for error message)
+    :returns: length of UTF-8 encoded value
+    :rtype: int
+    """
     cdef int length
     if value:
         tmp_str = value.encode("UTF-8")
@@ -1003,13 +1228,33 @@ cdef int _assign_char_field(char* dst, value, int max_length, command, field):
     return length
 
 # some members of SF_BROADCAST_INFO were not defined in libsndfile 1.0.28
-# they latter (1.0.29) introduced in the first bytes of the reserved member
+# they latter were (1.0.29) introduced in the first bytes of the reserved member
 cdef int16_t _read_new_broadcast_member(SF_BROADCAST_INFO* info,
                                         int offset):
+    """Read a member of broadcast info that was not defined in version 1.0.28
+
+    :param info: source struct
+    :type info: :c:struct:`SF_BROADCAST_INFO`*
+    :param offset: offset of value in info
+    :type offset: int
+    :returns: value at offset info info
+    :rtype: 16-bit signed integer
+    """
     return (<int16_t*>(<char*>info + offset))[0]
 
 cdef void _write_new_broadcast_member(SF_BROADCAST_INFO* info, int offset,
                                       int16_t value):
+    """Write to a member of broadcast info that was not defined in version 1.0.28
+
+    :param info: destination struct
+    :type info: SF_BROADCAST_INFO*
+    :param offset: offset of value in info
+    :type offset: int
+    :param value: value to be written into info
+    :type value: int
+    :returns: None
+    :rtype: None
+    """
     (<int16_t*>(<char*>info + offset))[0] = value
 
 def get_sndfile_version():
@@ -1287,33 +1532,81 @@ cdef class PySndfile:
     def command(self, command, arg=0) :
         """
         interface for passing commands via sf_command to underlying soundfile
-        using sf_command(this_sndfile, command_id, NULL, arg)        
+        using sf_command(this_sndfile, command_id, NULL, arg)
 
-        :param command: <string or int>
-              libsndfile command macro to be used. They can be specified either as string using the command macros name, or the command id.
+        The argument (if any) and return value depend of the command, here are
+        the details (refer to the libsndfile documentation for more information)
 
-              Supported commands are:
-        
-|                 SFC_SET_NORM_FLOAT
-|                 SFC_SET_NORM_DOUBLE
-|                 SFC_GET_NORM_FLOAT
-|                 SFC_GET_NORM_DOUBLE
-|                 SFC_SET_SCALE_FLOAT_INT_READ
-|                 SFC_SET_SCALE_INT_FLOAT_WRITE
-|                 SFC_SET_ADD_PEAK_CHUNK
-|                 SFC_UPDATE_HEADER_NOW
-|                 SFC_SET_UPDATE_HEADER_AUTO
-|                 SFC_SET_CLIPPING (see :py:func:`pysndfile.PySndfile.set_auto_clipping`)
-|                 SFC_GET_CLIPPING (see :py:func:`pysndfile.PySndfile.set_auto_clipping`)
-|                 SFC_WAVEX_GET_AMBISONIC
-|                 SFC_WAVEX_SET_AMBISONIC
-|                 SFC_RAW_DATA_NEEDS_ENDSWAP
-|                 SFC_RF64_AUTO_DOWNGRADE
-|                 SFC_GET_BITRATE_MODE
+        SFC_GET_LIB_VERSION(None) -> str
+        SFC_GET_LOG_INFO(None) -> str
+        SFC_GET_CURRENT_SF_INFO(None) -> :py:class:`SfInfo`
+        SFC_GET_NORM_DOUBLE(None) -> bool
+        SFC_GET_NORM_FLOAT(None) -> bool
+        SFC_SET_NORM_DOUBLE(bool) -> bool
+        SFC_SET_NORM_FLOAT(bool) -> bool
+        SFC_SET_SCALE_FLOAT_INT_READ(bool) -> bool
+        SFC_SET_SCALE_INT_FLOAT_WRITE(bool) -> bool
+        SFC_GET_SIMPLE_FORMAT_COUNT(None) -> int
+        SFC_GET_SIMPLE_FORMAT(int) -> :py:class:`SfFormatInfo`
+        SFC_GET_FORMAT_INFO(int) -> :py:class:`SfFormatInfo`
+        SFC_GET_FORMAT_MAJOR_COUNT(None) -> int
+        SFC_GET_FORMAT_MAJOR(int) -> :pt:type:`SfFormatInfo`
+        SFC_GET_FORMAT_SUBTYPE_COUNT(None) -> int
+        SFC_GET_FORMAT_SUBTYPE(int) -> :py:class:`SfFormatInfo`
+        SFC_CALC_SIGNAL_MAX(None) -> float
+        SFC_CALC_NORM_SIGNAL_MAX(None) -> float
+        SFC_CALC_MAX_ALL_CHANNELS(None) -> :py:class:`numpy.ndarray(numpy.float64)`
+        SFC_CALC_NORM_MAX_ALL_CHANNELS(None) -> :py:class:`numpy.ndarray(numpy.float64)`
+        SFC_GET_SIGNAL_MAX(None) -> float or None
+        SFC_GET_MAX_ALL_CHANNELS(None) -> :py:class:`numpy.ndarray(numpy.float64)` or None
+        SFC_SET_ADD_PEAK_CHUNK(bool) -> bool
+        SFC_SET_ADD_HEADER_PAD_CHUNK(bool) -> bool
+        SFC_UPDATE_HEADER_NOW(None) -> None
+        SFC_SET_UPDATE_HEADER_AUTO(bool) -> bool
+        SFC_FILE_TRUNCATE(int) -> None
+        SFC_SET_RAW_START_OFFSET(int) -> None
+        SFC_SET_DITHER_ON_WRITE(:py:class:`SfDitherInfo`) -> None
+        SFC_SET_DITHER_ON_READ(:py:class:`SfDitherInfo`) -> None
+        SFC_GET_DITHER_INFO_COUNT(None) -> int
+        SFC_GET_DITHER_INFO(None) -> :py:class:`SfDitherInfo`
+        SFC_GET_EMBED_FILE_INFO(None) -> :py:class:`SfEmbedFileInfo`
+        SFC_SET_CLIPPING(bool) -> bool
+        SFC_GET_CLIPPING(None) -> bool
+        SFC_GET_CUE_COUNT(None) -> int
+        SFC_GET_CUE(None) -> [:py:class:`SfCuePoint`]
+        SFC_SET_CUE([SfCuePoint]) -> None
+        SFC_GET_INSTRUMENT(None) -> :py:class:`SfInstrument` or None
+        SFC_SET_INSTRUMENT(:py:class:`SfInstrument`) -> None
+        SFC_GET_LOOP_INFO(None) -> :py:class:`SfLoopInfo`
+        SFC_GET_BROADCAST_INFO(None) -> :py:class:`SfBroadcastInfo` or None
+        SFC_SET_BROADCAST_INFO(:py:class:`SfBroadcastInfo`) -> None
+        SFC_GET_CHANNEL_MAP_INFO(None) -> [str]
+        SFC_SET_CHANNEL_MAP_INFO([str]) -> None
+        SFC_RAW_DATA_NEEDS_ENDSWAP(None) -> bool
+        SFC_WAVEX_SET_AMBISONIC(str) -> None
+        SFC_WAVEX_GET_AMBISONIC(None) -> str
+        SFC_RF64_AUTO_DOWNGRADE(bool) -> bool
+        SFC_SET_VBR_ENCODING_QUALITY(float) -> None
+        SFC_SET_COMPRESSION_LEVEL(float) -> None
+        SFC_SET_CART_INFO(:py:class:`SfCartInfo`) -> None
+        SFC_GET_CART_INFO(None) -> :py:class:`SfCartInfo` or None
+        SFC_SET_OGG_PAGE_LATENCY_MS(float) -> None
+        SFC_SET_OGG_PAGE_LATENCY(float) -> None
+        SFC_GET_OGG_STREAM_SERIALNO(None) -> int
+        SFC_GET_BITRATE_MODE(None) -> str
+        SFC_SET_BITRATE_MODE(str) -> None
+        SFC_SET_ORIGINAL_SAMPLERATE(int) -> None
+        SFC_GET_ORIGINAL_SAMPLERATE(None) -> int
+        SFC_TEST_IEEE_FLOAT_REPLACE(bool) -> None
+        SFC_SET_ADD_DITHER_ON_WRITE(None) -> None
+        SFC_SET_ADD_DITHER_ON_READ(None) -> None
 
-        :param arg: <int> additional argument of the command
-
-        :return: <int> 1 for success or True, 0 for failure or False
+        :param command: libsndfile command macro to be used. They can be specified either as string using the command macros name, or the command id.
+        :type command: string or int
+        :param arg: argument to the command
+        :type arg: depends on the command (see above)
+        :returns: depends on the command (see above)
+        :raises RuntimeError: if arg is invalid or if libsndfile reports failure
         """
         if isinstance(command, str) :
             return self.command(commands_name_to_id[command], arg)
@@ -1334,9 +1627,11 @@ cdef class PySndfile:
         if command == C_SFC_GET_CURRENT_SF_INFO:
             return self._get_current_sf_info()
         if command in [C_SFC_GET_NORM_DOUBLE, C_SFC_GET_NORM_FLOAT,
-                       C_SFC_GET_CLIPPING, C_SFC_RAW_DATA_NEEDS_ENDSWAP,
-                       C_SFC_UPDATE_HEADER_NOW]:
+                       C_SFC_GET_CLIPPING, C_SFC_RAW_DATA_NEEDS_ENDSWAP]:
             return self.thisPtr.command(command, NULL, 0)
+        if command == C_SFC_UPDATE_HEADER_NOW:
+            self.thisPtr.command(command, NULL, 0)
+            return None
         if command in [C_SFC_SET_NORM_DOUBLE, C_SFC_SET_NORM_FLOAT,
                        C_SFC_SET_SCALE_FLOAT_INT_READ,
                        C_SFC_SET_SCALE_INT_FLOAT_WRITE,
@@ -1924,6 +2219,15 @@ cdef class PySndfile:
         return pos            
 
     def _string_out_command(self, command, null_handle):
+        """Calls a libsndfile command returning a string
+
+        :param command: the command id
+        :type command: int
+        :param null_handle: True if the command does not required an open file
+        :type null_handle: bool
+        :return: the unicode string (from a buffer interpreted as UTF-8)
+        :rtype: str
+        """
         # string buffer, returns string size (not needed)
         cdef char buf[2048]
         buf[0] = 0
@@ -1934,16 +2238,34 @@ cdef class PySndfile:
         return buf.decode("UTF-8")
 
     def _get_current_sf_info(self):
+        """Retrieves format information about the current file
+
+        :returns: description of the file format
+        :rtype: :py:class:`SfInfo`
+        """
         cdef SF_INFO info
         memset(&info, 0, sizeof(SF_INFO))
         retcode = self.thisPtr.command(C_SFC_GET_CURRENT_SF_INFO, &info,
                                        sizeof(info))
         _check_command_retcode(retcode, C_SFC_GET_CURRENT_SF_INFO)
-        return SfInfoData(frames = info.frames, samplerate = info.samplerate,
-                          channels = info.channels, format = info.format,
-                          sections = info.sections, seekable = info.seekable)
+        return SfInfo(frames = info.frames, samplerate = info.samplerate,
+                      channels = info.channels, format = info.format,
+                      sections = info.sections, seekable = info.seekable)
 
     def _bool_set_command(self, command, arg, compare_return, check_retcode):
+        """Calls a libsndfile command expecting a boolean argument
+
+        :param command: the command id
+        :type command: int
+        :param arg: the argument
+        :type arg: bool
+        :param compare_return: whether the command returns the new value
+        :type compare_return: bool
+        :param check_retcode: whether the command returns an error code
+        :returns: previous or current value or None depending on the command
+        :rtype: bool or None
+        :raises RuntimeError: if arg is not a boolean, if the command failed or it if the current value is not equal to arg
+        """
         if arg != C_SF_FALSE and arg != C_SF_TRUE:
             raise RuntimeError("PySndfile::error:: command {0} argument {1} should be {2} or {3}".format(commands_id_to_name[command], arg, C_SF_FALSE, C_SF_TRUE))
         cdef int tmp_arg = <int> arg
@@ -1956,6 +2278,18 @@ cdef class PySndfile:
         return ret
 
     def _int_get_command(self, command, null_handle, return_is_hybrid):
+        """Retrieves an integer value
+
+        :param command: the command id
+        :type command: int
+        :param null_handle: True if the command does not required an open file
+        :type null_handle: bool
+        :param return_is_hybrid: True if a SF_TRUE return value means success
+        :type return_is_hybrid: bool
+        :returns: the integer value
+        :rtype: int
+        :raises RuntimeError: if the command failed
+        """
         cdef int tmp_int = 0
         cdef int ret
         if null_handle:
@@ -1969,6 +2303,15 @@ cdef class PySndfile:
         return tmp_int
 
     def _format_get_command(self, command, arg):
+        """Retrieves information about a file format
+
+        :param command: the command id
+        :type command: int
+        :param arg: index or id of the format
+        :type arg: int
+        :returns: :py:class:`SfFormatInfo`
+        :raises RuntimeError: if the index or id is invalid
+        """
         cdef SF_FORMAT_INFO tmp_info
         memset(&tmp_info, 0, sizeof(SF_FORMAT_INFO))
         tmp_info.format = <int> arg
@@ -1984,6 +2327,16 @@ cdef class PySndfile:
         return ret
 
     def _double_get_command(self, command, is_optional):
+        """Retrieves a floating point value
+
+        :param command: the command id
+        :type command: int
+        :param is_optional: if False the value is expected to exist
+        :type is_optional: bool
+        :returns: either the requested value or None if optional and absent
+        :rtype: float or None
+        :raises RuntimeError: if the command failed or if the value is missing and is_optional is False
+        """
         cdef double tmp_double = 0.
         cdef int ret = self.thisPtr.command(command, &tmp_double,
                                             sizeof(double))
@@ -1995,6 +2348,16 @@ cdef class PySndfile:
         return tmp_double
 
     def _double_channel_get_command(self, command, is_optional):
+        """Retrieves values for each channel
+
+        :param command: the command id
+        :type command: int
+        :param is_optional: if False the value is expected to exist
+        :type is_optional: bool
+        :returns: either the requested values or None if optional and absent
+        :rtype: list[float] or None
+        :raises RuntimeError: if the command failed or if the value is missing and is_optional is False
+        """
         nc = self.thisPtr.channels()
         cdef cnp.ndarray[cnp.float64_t, ndim=1] ret = np.zeros(nc,
                                                                dtype=np.float64,
@@ -2010,6 +2373,19 @@ cdef class PySndfile:
         return ret
 
     def _double_set_command(self, command, arg, valid_range, return_is_hybrid):
+        """Sets a floating point value within a range
+
+        :param command: the command id
+        :type command: int
+        :param arg: the floating point value
+        :type arg: float
+        :param valid_range: a list of two values, minimum and maximum
+        :param return_is_hybrid: True if a SF_TRUE return value means success
+        :type return_is_hybrid: bool
+        :returns: None
+        :rtype: None
+        :raises RuntimeError: if arg is not with the valid range or if libsnfile reports an error
+        """
         cdef double tmp_double = arg
         if tmp_double < valid_range[0] or tmp_double > valid_range[1]:
             raise RuntimeError("PySndfile::error:: value {0} not in range {1}-{2} for command {3}".format(arg, valid_range[0], valid_range[1], commands_id_to_name[command]))
@@ -2023,6 +2399,20 @@ cdef class PySndfile:
         return None
 
     def _sf_count_set_command(self, command, arg, is_retcode):
+        """sets a size value
+
+        :param command: the command id
+        :type command: int
+        :param arg: a non negative integer value
+        :type arg: int
+        :param is_retcode: if True the command returns an error code, otherwise a non-zero value indicates an unspecified failure
+        :type is_retcode: bool
+        :returns: None
+        :rtype: None
+        :raises RuntimeError: if arg is negative or if libsndfile reports failure
+        """
+        if arg < 0:
+            raise RuntimeError("PySndfile::error:: argument to command {0} must not be negative ({1} provided)".format(commands_id_to_name[command], arg))
         cdef sf_count_t tmp_arg = <sf_count_t> arg
         cdef int ret
         ret = self.thisPtr.command(command, &tmp_arg, sizeof(sf_count_t))
@@ -2036,6 +2426,16 @@ cdef class PySndfile:
         return None
 
     def _dither_set_command(self, command, arg):
+        """Sets dither information
+
+        :param command: the command id
+        :type command: int
+        :param arg: dither information
+        :type arg: :py:class:`SfDitherInfo`
+        :returns: None
+        :rtype: None
+        :raises RuntimeError: if libsndfile reports failure
+        """
         cdef SF_DITHER_INFO tmp_info
         tmp_info.type = arg.type
         tmp_info.level = arg.level
@@ -2046,6 +2446,14 @@ cdef class PySndfile:
         return None
 
     def _dither_get_command(self, command):
+        """Retrieves dither information
+
+        :param command: the command id
+        :type command: int
+        :returns: dither information
+        :rtype: :py:class:`SfDitherInfo`
+        :raises RuntimeError: if libsndfile reports failure
+        """
         cdef SF_DITHER_INFO tmp_info
         memset(&tmp_info, 0, sizeof(SF_DITHER_INFO))
         retcode = self.thisPtr.command(command, &tmp_info,
@@ -2058,6 +2466,14 @@ cdef class PySndfile:
         return ret
 
     def _embed_get_command(self, command):
+        """Retrieves information about embedded files
+
+        :param command: the command id
+        :type command: int
+        :returns: offset and length of embedded file
+        :rtype: py:class:`SfEmbedFileInfo`
+        :raises RuntimeError: if libsndfile reports failure
+        """
         cdef SF_EMBED_FILE_INFO tmp_info
         memset(&tmp_info, 0, sizeof(SF_EMBED_FILE_INFO))
         retcode = self.thisPtr.command(command, &tmp_info,
@@ -2067,6 +2483,13 @@ cdef class PySndfile:
                                length = tmp_info.length)
 
     def _uint32_get_command(self, command):
+        """Retrieves an unsigned integer value
+
+        :param command: the command id
+        :type command: int
+        :returns: the unsigned value
+        :rtype: int
+        """
         cdef uint32_t ret = 0
         retcode = self.thisPtr.command(command, &ret, sizeof(uint32_t))
         if retcode == C_SF_FALSE:
@@ -2074,6 +2497,13 @@ cdef class PySndfile:
         return ret
 
     def _cue_get_command(self, command):
+        """Retrieves cue markers
+
+        :param command: the command id
+        :type command: int
+        :returns: the list of cue points
+        :rtype: list[:py:class:`SfCuePoint`]
+        """
         cdef SF_CUES tmp_cues
         cdef SF_CUES* cue_ptr = NULL
         cdef int cue_size
@@ -2109,6 +2539,16 @@ cdef class PySndfile:
         return ret
             
     def _cue_set_command(self, command, arg):
+        """Set cue markers
+
+        :param command: the command id
+        :type command: int
+        :param arg: the list of cue points
+        :type arg: list[:py:class:`SfCuePoint`]
+        :returns: None
+        :rtype: None
+        :raises RuntimeError: if libsndfile reports failure
+        """
         cdef SF_CUES tmp_cues
         cdef SF_CUES* cue_ptr = NULL
         cdef int cue_size
@@ -2139,6 +2579,13 @@ cdef class PySndfile:
         return None
 
     def _instrument_get_command(self, command):
+        """Retrieves instrument information
+
+        :param command: the command id
+        :type command: int
+        :returns: instrument information or None
+        :rtype: :py:class:SfInstrument or None
+        """
         cdef SF_INSTRUMENT tmp_inst
         memset(&tmp_inst, 0, sizeof(SF_INSTRUMENT))
         retcode = self.thisPtr.command(command, &tmp_inst,
@@ -2162,6 +2609,16 @@ cdef class PySndfile:
             return None
 
     def _instrument_set_command(self, command, arg):
+        """Sets instrument information
+
+        :param command: the command id
+        :type command: int
+        :param arg: instrument definition
+        :type arg: SfInstrument
+        :returns: None
+        :rtype: None
+        :raises RuntimeError: if more than 16 loops are defined or if libsndfile reports failure
+        """
         cdef SF_INSTRUMENT tmp_inst
         tmp_inst.loop_count = len(arg.loops)
         if tmp_inst.loop_count > 16:
@@ -2189,6 +2646,13 @@ cdef class PySndfile:
         return None
         
     def _loop_get_command(self, command):
+        """Retrieves loop information
+
+        :param command: the command id
+        :type command: int
+        :returns: loop information or None
+        :rtype: :py:class:`SfLoopInfo` or None
+        """
         cdef SF_LOOP_INFO tmp_loop
         memset(&tmp_loop, 0, sizeof(SF_LOOP_INFO))
         retcode = self.thisPtr.command(command, &tmp_loop, sizeof(SF_LOOP_INFO))
@@ -2205,6 +2669,13 @@ cdef class PySndfile:
             return None
 
     def _broadcast_get_command(self, command):
+        """Retrieves the broadcast extension chunk
+
+        :param command: the command id
+        :type command: int
+        :returns: broadcast information or None
+        :rtype: :py:class:`SfBroadcastInfo` or None
+        """
         cdef SF_BROADCAST_INFO tmp_info
         cdef SF_BROADCAST_INFO* info_ptr = NULL
         memset(&tmp_info, 0, sizeof(SF_BROADCAST_INFO))
@@ -2254,6 +2725,16 @@ cdef class PySndfile:
         return ret
 
     def _broadcast_set_command(self, command, arg):
+        """Defines broadcast extension information
+
+        :param command: the command id
+        :type command: int
+        :param arg: broadcast information
+        :type arg: :py:class:`SfBroadcastInfo`
+        :returns: None
+        :rtype: None
+        :raises RuntimeError: if libsndfile reports failure
+        """
         cdef SF_BROADCAST_INFO tmp_info
         cdef SF_BROADCAST_INFO* info_ptr = &tmp_info
         cdef int info_size = sizeof(SF_BROADCAST_INFO)
@@ -2323,6 +2804,13 @@ cdef class PySndfile:
         return None
 
     def _channel_map_get_command(self, command):
+        """Retrieves the channel map
+
+        :param command: the command id
+        :type command: int
+        :returns: a list of strings (one per channel) or None
+        :rtype: list[str]
+        """
         cdef size_t nc = self.thisPtr.channels()
         cdef size_t datasize = nc * sizeof(int)
         cdef int* tmp_map = <int*>calloc(1, datasize)
@@ -2339,6 +2827,14 @@ cdef class PySndfile:
             free(tmp_map)
 
     def _channel_map_set_command(self, command, arg):
+        """Defines the channel map
+
+        :param command: the command id
+        :type command: int
+        :param arg: a list of strings that must be keys in :py:data:`channel_map_name_to_id`, one per channel
+        :type arg: list[str]
+        :raises RuntimeError: if the size of arg does not match the number of channels or if libsndfile reports failure
+        """
         nc = self.thisPtr.channels()
         if len(arg) != nc:
             raise RuntimeError("PySndfile::error:: wrong number of channels ({0}) in {1}, should be {2}".format(len(arg), commands_id_to_name[command], nc))
@@ -2354,12 +2850,30 @@ cdef class PySndfile:
         return None
 
     def _int32_get_command(self, command):
+        """Retrieves an integer value
+
+        :param command: the command id
+        :type command: int
+        :returns: an signed integer value
+        :rtype: int
+        :raises RuntimeError: if libsndfile reports failure
+        """
         cdef int32_t tmp_int = 0
         cdef int ret = self.thisPtr.command(command, &tmp_int, sizeof(int32_t))
         _check_command_retval(ret, command, C_SF_FALSE)
         return tmp_int
 
     def _bitrate_set_command(self, command, arg):
+        """Defines the bitrate mode
+
+        :param command: the command id
+        :type command: int
+        :param arg: a string that is one of the keys in :py:data:`bitrate_mode_name_to_id`
+        :type arg: str
+        :returns: None
+        :rtype: None
+        :raises RuntimeError: if libsndfile reports failure
+        """
         cdef int tmp_int = bitrate_mode_name_to_id[arg]
         _check_command_retval(self.thisPtr.command(command, &tmp_int,
                                                    sizeof(int)),
@@ -2367,6 +2881,14 @@ cdef class PySndfile:
         return None
 
     def _cart_set_command(self, command, arg):
+        """Defines Cart chunk information
+
+        :param command: the command id
+        :type command: int
+        :param arg: Cart chunk information
+        :type arg: :py:class:`SfCartInfo`
+        :raises RuntimeError: if libsndfile reports failure
+        """
         cdef SF_CART_INFO tmp_info
         cdef SF_CART_INFO* info_ptr = &tmp_info
         cdef int info_size = sizeof(SF_CART_INFO)
@@ -2436,6 +2958,13 @@ cdef class PySndfile:
         return None
 
     def _cart_get_command(self, command):
+        """Retrieves Cart chunk information
+
+        :param command: the command id
+        :type command: int
+        :returns: Cart chunk information or None
+        :rtype: :py:class:`SfCartInfo` or None
+        """
         cdef SF_CART_INFO tmp_info
         cdef SF_CART_INFO* info_ptr = NULL
         memset(&tmp_info, 0, sizeof(SF_CART_INFO))
@@ -2487,6 +3016,16 @@ cdef class PySndfile:
         return ret
 
     def _int_set_command(self, command, arg):
+        """Sets an integer value
+
+        :param command: the command id
+        :type command: int
+        :param arg: the integer value
+        :type arg: int
+        :returns: None
+        :rtype: None
+        :raises RuntimeError: if libsndfile reports failure
+        """
         cdef int tmp_int = arg
         _check_command_hybrid_retval(self.thisPtr.command(command, &tmp_int,
                                                           sizeof(int)),

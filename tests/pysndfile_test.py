@@ -158,6 +158,7 @@ test_compressed('test48000.wav', 'ogg', 'opus', 1., True)
 # lame does not accept 1 for compression level (or 0 for VBR)
 test_compressed('test.wav', 'mpeg', 'mp3', 0.9999, True)
 
+# ALAC does not support SET_COMPRESSION_LEVEL as of libsndfile 1.2.2
 test_compressed('test.wav', 'caf', 'alac24', -1., False)
 
 cart=SfCartInfo(version='0101', title='Cart Chunk: the traffic data file format for the Radio Industry', artist='Jay Rose, dplay.com', cut_id='DEMO-0101', client_id='CartChunk.org', category='DEMO', classification='Demo and sample files', out_cue='the Radio Industry', start_date='1900/01/01', start_time='Cart Chu', end_date='2099/12/31', end_time='23:59:59', producer_app_id='AUDICY', producer_app_version='3.10/623', user_def="Demo ID showing basic 'cart' chunk attributes", level_reference=32768, post_timers=[SfCartTimer(usage='MRK ', value=112000), SfCartTimer(usage='SEC1', value=152533), SfCartTimer(usage='EOD ', value=201024)], url='http://www.cartchunk.org', tag_text="The radio traffic data, or 'cart' format utilizes a widely\r\nused standard audio file format (wave and broadcast wave file).\r\nIt incorporates the common broadcast-specific cart labeling\r\ninformation into a specialized chunk within the file itself.\r\nAs a result, the burden of linking multiple systems is reduced\r\nto producer applications writing a single file, and the consumer\r\napplications reading it. The destination application can extract\r\ninformation and insert it into the native database application\r\nas needed.\r\n")
