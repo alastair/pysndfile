@@ -1,7 +1,7 @@
 Changes
 -------
 
-Version_1.5.0 (2025-07-16)
+Version_1.5.0 (2025-07-23)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 -  Requires python 3.8 or above
