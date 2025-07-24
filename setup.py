@@ -476,6 +476,7 @@ setup(
     long_description = update_long_descr(),
     long_description_content_type='text/x-rst',
     license = "LGPL",
+    python_requires=">=3.8",
     install_requires= install_requires,
     url = " https://forge-2.ircam.fr/roebel/pysndfile.git",
     keywords = "soundfile,audiofile",

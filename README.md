@@ -2,7 +2,7 @@
 
 pysndfile is a python package providing *PySndfile*, a [Cython](http://cython.org/) wrapper class around [libsndfile](http://www.mega-nerd.com/libsndfile/). PySndfile provides methods for reading and writing a large variety of soundfile formats on a variety of plattforms. PySndfile provides a rather complete access to the different sound file manipulation options that are available in libsndfile.
 
-Due to the use of libsndfile nearly all sound file formats, (besides mp3 and derived formats) can be read and written with PySndfile.
+Due to the use of libsndfile nearly all sound file formats can be read and written with PySndfile.
 
 The interface has been designed such that a rather large subset of the functionality of libsndfile can be used, notably the reading and writing of strings into soundfile formats that support these, and a number of sf_commands that allow to control the way libsndfile reads and writes the samples. One of the most important ones is the use of the clipping command.
 
@@ -105,6 +105,14 @@ any help in making this work.
 Please see the developer documentation [here](https://pysndfile.readthedocs.io/en/latest/modules.html).
 
 ## Changes
+
+### Version_1.5.0 (2025-07-23)
+
+ * Requires python 3.8 or above
+ * Extension: ogg/vorbis, ogg/opus, CAF/ALAC and mpeg formats are now supported if the installed version of libsndfile supports them
+ * Extension: All libsndfile commands (as of version 1.2.2) are now supported by PySndfile.command
+ * Extension: sndio.write now has a commands parameter to define sound file information and settings using the libsndfile sf_command function
+ * Extension: new function sndio.get_info_command to retrieve information about a sound file
 
 ### Version_1.4.7 (2024-12-31)
 

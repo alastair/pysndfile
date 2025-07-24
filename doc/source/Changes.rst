@@ -1,6 +1,20 @@
 Changes
 -------
 
+Version_1.5.0 (2025-07-23)
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+-  Requires python 3.8 or above
+-  Extension: ogg/vorbis, ogg/opus, CAF/ALAC and mpeg formats are now
+   supported if the installed version of libsndfile supports them
+-  Extension: All libsndfile commands (as of version 1.2.2) are now
+   supported by PySndfile.command
+-  Extension: sndio.write now has a commands parameter to define sound
+   file information and settings using the libsndfile sf_command
+   function
+-  Extension: new function sndio.get_info_command to retrieve
+   information about a sound file
+
 Version_1.4.7 (2024-12-31)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
