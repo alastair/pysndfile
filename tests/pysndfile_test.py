@@ -265,6 +265,56 @@ if read_cart.tag_text[0:-2] != cart.tag_text:
     print("read cart tag_text is different",read_cart.tag_text[0:-2],cart.tag_text)
     sys.exit(1)
 
+# AIFF's instrument has key and velocity, but is no longer supported by
+# libsndfile, so WAV is more predictable
+# reading detune is only supported starting with 1.0.29
+sndfile_version = get_sndfile_version()
+if sndfile_version[0] > 1 or (sndfile_version[0] == 1 and sndfile_version[1] > 0 or (sndfile_version[1] == 0 and sndfile_version[2] >= 29)):
+    detune_value = 4
+else:
+    detune_value = 0
+inst=SfInstrument(gain=1, basenote=3, detune=detune_value, velocity_lo=0, velocity_hi=127, key_lo=0, key_hi=127, loops=[SfInstrumentLoop(mode="SF_LOOP_FORWARD", start=10, end=20, count=9), SfInstrumentLoop(mode="SF_LOOP_BACKWARD", start=30, end=40, count=11)])
+pysndfile.sndio.write(os.path.join(mydir, 'testinst.wav'), ss, format="wav", enc="float32", rate=sr, commands=pysndfile.sndio.Commands(SFC_SET_INSTRUMENT=inst))
+info=pysndfile.sndio.get_info_command(os.path.join(mydir, 'testinst.wav'), commands=["SFC_GET_INSTRUMENT"])
+read_inst = info["SFC_GET_INSTRUMENT"]
+if read_inst.gain != inst.gain:
+    print("read instrument gain is different")
+    sys.exit(1)
+if read_inst.basenote != inst.basenote:
+    print("read instrument basenote is different")
+    sys.exit(1)
+if read_inst.detune != inst.detune:
+    print("read instrument detune is different")
+    sys.exit(1)
+if read_inst.velocity_lo != inst.velocity_lo:
+    print("read instrument velocity_lo is different")
+    sys.exit(1)
+if read_inst.velocity_hi != inst.velocity_hi:
+    print("read instrument velocity_hi is different")
+    sys.exit(1)
+if read_inst.key_lo != inst.key_lo:
+    print("read instrument key_lo is different")
+    sys.exit(1)
+if read_inst.key_hi != inst.key_hi:
+    print("read instrument key_hi is different")
+    sys.exit(1)
+if len(read_inst.loops) != len(inst.loops):
+    print("read instrument loops is different")
+    sys.exit(1)
+for i in range(len(read_inst.loops)):
+    if read_inst.loops[i].mode != inst.loops[i].mode:
+        print("read instrument loop mode is different")
+        sys.exit(1)
+    if read_inst.loops[i].start != inst.loops[i].start:
+        print("read instrument loop start is different")
+        sys.exit(1)
+    if read_inst.loops[i].end != inst.loops[i].end:
+        print("read instrument loop end is different")
+        sys.exit(1)
+    if read_inst.loops[i].count != inst.loops[i].count:
+        print("read instrument loop count is different")
+        sys.exit(1)
+
 if 'mpeg' in majors and 'mp3' in get_sndfile_encodings('mpeg'): 
     pysndfile.sndio.write(os.path.join(mydir, 'test.mp3'), ss, format="mpeg", enc="mp3", commands=pysndfile.sndio.Commands(SFC_SET_BITRATE_MODE="SF_BITRATE_MODE_AVERAGE", SFC_SET_VBR_ENCODING_QUALITY=0.5))
     info=pysndfile.sndio.get_info_command(os.path.join(mydir, 'test.mp3'), commands=["SFC_GET_BITRATE_MODE", "SFC_GET_CURRENT_SF_INFO", "SFC_CALC_SIGNAL_MAX", "SFC_GET_SIGNAL_MAX"])
