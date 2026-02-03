@@ -37,7 +37,7 @@ from libcpp.string cimport string
 cdef extern from "Python.h":
     ctypedef int Py_intptr_t
   
-_pysndfile_version=(1, 5, 0)
+_pysndfile_version=(1, 5, 1)
 def get_pysndfile_version():
     """
     return tuple describing the version of pysndfile
@@ -147,7 +147,7 @@ cdef extern from "pysndfile.hh":
         char key_lo
         char key_hi
         int loop_count
-        char loops[16 * sizeof(loop_t)]
+        loop_t loops[16]
 
     ctypedef struct SF_LOOP_INFO:
         short time_sig_num
@@ -2590,7 +2590,6 @@ cdef class PySndfile:
         memset(&tmp_inst, 0, sizeof(SF_INSTRUMENT))
         retcode = self.thisPtr.command(command, &tmp_inst,
                                        sizeof(SF_INSTRUMENT))
-        cdef loop_t* loops = <loop_t*> tmp_inst.loops
         if retcode == C_SF_TRUE:
             ret = SfInstrument(gain = tmp_inst.gain,
                                basenote = tmp_inst.basenote,
@@ -2601,9 +2600,10 @@ cdef class PySndfile:
                                key_hi = tmp_inst.key_hi, loops = [])
             for li in range(tmp_inst.loop_count):
                 ret.loops.append(SfInstrumentLoop(
-                    mode = loop_id_to_name[loops[li].mode], 
-                    start = loops[li].start, end = loops[li].end, 
-                    count = loops[li].count))
+                    mode = loop_id_to_name[tmp_inst.loops[li].mode], 
+                    start = tmp_inst.loops[li].start,
+                    end = tmp_inst.loops[li].end, 
+                    count = tmp_inst.loops[li].count))
             return ret
         else:
             return None
@@ -2623,7 +2623,6 @@ cdef class PySndfile:
         tmp_inst.loop_count = len(arg.loops)
         if tmp_inst.loop_count > 16:
             raise RuntimeError("PySndfile::error:: too many loops ({0}) in {1}, maximum is 16".format(tmp_inst.loop_count, command))
-        cdef loop_t* loops = <loop_t*> tmp_inst.loops
         tmp_inst.gain = arg.gain
         tmp_inst.basenote = _check_char_range(arg.basenote, command, "basenote")
         tmp_inst.detune = _check_char_range(arg.detune, command, "detune")
@@ -2636,10 +2635,10 @@ cdef class PySndfile:
         for li in range(tmp_inst.loop_count):
             if arg.loops[li].mode not in loop_name_to_id:
                 raise RuntimeError("PySndfile::error:: unknow loop mode ({0}) in {1}".format(arg.loops[li].mode, command))
-            loops[li].mode = loop_name_to_id[arg.loops[li].mode]
-            loops[li].start = arg.loops[li].start
-            loops[li].end = arg.loops[li].end
-            loops[li].count = arg.loops[li].count
+            tmp_inst.loops[li].mode = loop_name_to_id[arg.loops[li].mode]
+            tmp_inst.loops[li].start = arg.loops[li].start
+            tmp_inst.loops[li].end = arg.loops[li].end
+            tmp_inst.loops[li].count = arg.loops[li].count
         retcode = self.thisPtr.command(command, &tmp_inst,
                                        sizeof(SF_INSTRUMENT))
         _check_command_retval(retcode, command, C_SF_FALSE)

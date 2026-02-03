@@ -106,6 +106,10 @@ Please see the developer documentation [here](https://pysndfile.readthedocs.io/e
 
 ## Changes
 
+### Version_1.5.1 (2026-01-27)
+
+ * Fix (build): Ensure compatibility with Cython 3.2
+
 ### Version_1.5.0 (2025-07-23)
 
  * Requires python 3.8 or above
@@ -344,7 +348,7 @@ this update is purely administrative, no code changes
 
 ## Copyright
 
-Copyright (C) 2014-2024 IRCAM
+Copyright (C) 2014-2026 IRCAM
 
 ## Author
 

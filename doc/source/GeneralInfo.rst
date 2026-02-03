@@ -1,7 +1,7 @@
 Copyright
 ---------
 
-Copyright (C) 2014-2024 IRCAM
+Copyright (C) 2014-2026 IRCAM
 
 Author
 ------
