@@ -86,9 +86,16 @@ except Exception:
 
 compile_for_RTD =  "READTHEDOCS" in os.environ
 
+ext_macros = [("NPY_NO_DEPRECATED_API", "NPY_1_13_API_VERSION")]
+if compile_for_RTD:
+    ext_macros.append(('READTHEDOCS_ENV', '1'))
+# python does not forward this to the compiler on windows
+if platform.system() == "Windows" and sysconfig.get_config_var('Py_GIL_DISABLED') == 1:
+    ext_macros.append(('Py_GIL_DISABLED', '1'))
+
 if compile_for_RTD:
     ext_modules = [Extension("_pysndfile", ["_pysndfile.pyx"],
-                             define_macros=[('READTHEDOCS_ENV', '1'), ("NPY_NO_DEPRECATED_API", "NPY_1_13_API_VERSION")],
+                             define_macros=ext_macros,
                              include_dirs = [np.get_include()],
                              language="c++")]
 elif os.environ.get("PYSNDFILE_USE_STATIC", "0") != "0":
@@ -97,20 +104,28 @@ elif os.environ.get("PYSNDFILE_USE_STATIC", "0") != "0":
     ext_modules = [Extension("_pysndfile", ["_pysndfile.pyx"],
                              include_dirs = [np.get_include()],
                              language="c++",
-                             define_macros = [("NPY_NO_DEPRECATED_API", "NPY_1_13_API_VERSION") ] )]
+                             define_macros = ext_macros )]
 else:
     ext_modules = [Extension("_pysndfile", ["_pysndfile.pyx"],
                              libraries = ["sndfile"],
                              include_dirs = [np.get_include()],
                              language="c++",
-                             define_macros = [("NPY_NO_DEPRECATED_API", "NPY_1_13_API_VERSION") ] )]
+                             define_macros = ext_macros )]
 
 try :
     from Cython.Build import cythonize
     # dont adapt language level to python
     #  languge_level is hard-coded in the pyx source
     #ext_modules = cythonize(ext_modules, force=compile_for_RTD, language_level=sys.version_info[0])
-    ext_modules = cythonize(ext_modules, force=compile_for_RTD, language_level=2)
+    from Cython.Compiler.Version import version as cython_version
+    from packaging.version import Version
+    # maybe there should be a clear error if GIL is disabled but cython is too
+    # old to support free-threading
+    if sysconfig.get_config_var('Py_GIL_DISABLED') == 1 and Version(cython_version) >= Version("3.1.0"):
+        comp_dir  = {"freethreading_compatible" : True}
+    else:
+        comp_dir  = {}
+    ext_modules = cythonize(ext_modules, force=compile_for_RTD, language_level=2, compiler_directives=comp_dir)
 except ImportError  :
     print("cannot import cythonize - to be able to cythonize the source please install cython", file=sys.stderr)
     sys.exit(1)
