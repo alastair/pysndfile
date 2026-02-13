@@ -48,6 +48,10 @@ def find_libsndfile():
 
             tmp_inc_dir = Path(dir) / "include"
             tmp_lib_dir = Path(dir) / "lib"
+            if platform.system() == "Linux":
+                multiarch = sysconfig.get_config_var("MULTIARCH")
+                if multiarch and not (tmp_lib_dir / "libsndfile.so").exists() and ((tmp_lib_dir / multiarch) / "libsndfile.so").exists():
+                    tmp_lib_dir = tmp_lib_dir / multiarch
             if (tmp_inc_dir / "sndfile.h").exists():
                 if platform.system() == "Windows":
                     # static and shared libraries have the same name on windows
